@@ -1,4 +1,4 @@
-# pi.apeto.ir deployment
+# plan.apeto.ir deployment
 
 Source: https://github.com/croffasia/itsaplan
 Initial commit: 96c965682c8ac06b05c6f0841da6fd4376d7e251
