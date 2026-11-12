@@ -15,6 +15,7 @@ import {
 } from '@repo/db';
 import { and, desc, eq, gte, inArray, isNull, isNotNull, lt, sql } from 'drizzle-orm';
 import { HttpError, iso } from '#shared/lib';
+import { assigneeCondition } from '#modules/issues/assignees';
 import type { AgentRunTrigger } from '#modules/agents/model';
 
 // Read-only project metrics for the dashboards feature. Every figure is derived
@@ -91,7 +92,7 @@ export async function getStats(projectId: number): Promise<StatsDto> {
     .select({ unassigned: sql<number>`count(*)::int` })
     .from(issue)
     .innerJoin(projectColumn, eq(projectColumn.id, issue.columnId))
-    .where(and(onBoard(projectId), isNull(issue.assigneeUserId), OPEN_STATES));
+    .where(and(onBoard(projectId), assigneeCondition(null), OPEN_STATES));
 
   const closedRows = (await db.execute(sql`
     SELECT count(*)::int AS count

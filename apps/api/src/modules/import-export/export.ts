@@ -12,6 +12,7 @@ import {
 } from '@repo/db';
 import { eq, and, inArray } from 'drizzle-orm';
 import { HttpError } from '#shared/lib';
+import { assigneeIdsSql } from '#modules/issues/assignees';
 
 // A project's own data, read directly (no import_job involved) and shaped into a
 // self-contained, human-readable snapshot: states/cycles/parents/relations are named,
@@ -44,6 +45,7 @@ export interface ExportedIssue {
   dueDate: string | null;
   parentIdentifier: string | null;
   assigneeEmail: string | null;
+  assigneeEmails: string[];
   comments: ExportedComment[];
   relations: ExportedRelation[];
 }
@@ -98,6 +100,7 @@ export async function exportProject(projectId: number): Promise<ProjectExport> {
       cycleId: issue.cycleId,
       parentId: issue.parentId,
       assigneeUserId: issue.assigneeUserId,
+      assigneeUserIds: assigneeIdsSql,
       priority: issue.priority,
       startDate: issue.startDate,
       dueDate: issue.dueDate,
@@ -160,9 +163,10 @@ export async function exportProject(projectId: number): Promise<ProjectExport> {
 
   const userIds = [
     ...new Set(
-      [...issueRows.map((i) => i.assigneeUserId), ...comments.map((c) => c.actorUserId)].filter(
-        (id): id is string => id != null,
-      ),
+      [
+        ...issueRows.flatMap((i) => i.assigneeUserIds),
+        ...comments.map((c) => c.actorUserId),
+      ].filter((id): id is string => id != null),
     ),
   ];
   const emailByUserId = userIds.length
@@ -203,6 +207,7 @@ export async function exportProject(projectId: number): Promise<ProjectExport> {
         row.parentId != null ? (identifierByIssueId.get(row.parentId) ?? null) : null,
       assigneeEmail:
         row.assigneeUserId != null ? (emailByUserId.get(row.assigneeUserId) ?? null) : null,
+      assigneeEmails: row.assigneeUserIds.flatMap((id) => emailByUserId.get(id) ?? []),
       comments: issueComments.map((c) => ({
         authorName: c.actorName,
         authorEmail: c.actorUserId != null ? (emailByUserId.get(c.actorUserId) ?? null) : null,

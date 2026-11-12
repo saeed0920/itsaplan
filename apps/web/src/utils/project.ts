@@ -49,6 +49,7 @@ export type NewIssueDefaults = Partial<
     | 'initiativeId'
     | 'cycleId'
     | 'assigneeUserId'
+    | 'assigneeUserIds'
     | 'delegateUserId'
     | 'priority'
     | 'title'
@@ -496,6 +497,8 @@ function memberGroups(
 // which groups exist. Operators that read a date or a text never apply to a
 // grouping field, so they leave the groups alone.
 function allowedGroups(groups: IssueGroup[], group: GroupField, filters: FilterSet): IssueGroup[] {
+  // A co-assignee filter can match an issue in any primary-assignee group.
+  if (group === 'assignee') return groups;
   const conditions = filters.conditions.filter((c) => c.field === group && isEffectiveCondition(c));
   if (conditions.length === 0) return groups;
   return groups.filter((g) => conditions.every((c) => groupMatches(g, c)));

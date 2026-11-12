@@ -128,6 +128,7 @@ function redactIssue<T extends IssueRow>(row: T): T {
     initiative: null,
     cycle: null,
     assigneeUserId: null,
+    assigneeUserIds: [],
     delegateUserId: null,
     labelIds: [],
     fieldValues: [],

@@ -8,6 +8,7 @@ import type {
   IssuePatch,
   IssueWatcher,
 } from '@/lib/api/endpoints/issues';
+import { issueAssigneeIds } from '@/utils/assignees';
 import AssigneeSelect from '@/components/common/fields/AssigneeSelect';
 import DatePill from '@/components/common/fields/DatePill';
 import { Pill } from '@/components/common/fields/Pill';
@@ -129,8 +130,10 @@ export default function IssueProperties({
           <IssuePropertyRow key="assignee" label={t('assignee')}>
             <AssigneeSelect
               assignees={project.assignees}
-              value={issue.assigneeUserId}
-              onChange={(userId) => onPatch({ assigneeUserId: userId })}
+              multiple
+              issueId={issue.id}
+              value={issueAssigneeIds(issue)}
+              onChange={(assigneeUserIds) => onPatch({ assigneeUserIds })}
               readOnly={readOnly}
             />
           </IssuePropertyRow>

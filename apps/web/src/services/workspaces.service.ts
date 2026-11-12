@@ -2,6 +2,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import {
   addWorkspaceAdmin,
   createWorkspaceScimToken,
+  createWorkspace,
+  getWorkspaceCreation,
   deleteWorkspace,
   getWorkspace,
   getWorkspaceScim,
@@ -20,6 +22,21 @@ import { qk } from '@/services/queryKeys';
 
 export function useWorkspacesQuery() {
   return useQuery({ queryKey: qk.workspaces, queryFn: () => listWorkspaces() });
+}
+
+export function useWorkspaceCreationQuery() {
+  return useQuery({ queryKey: [...qk.workspaces, 'creation'], queryFn: getWorkspaceCreation });
+}
+
+export function useCreateWorkspace() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createWorkspace,
+    onSuccess: (workspace) => {
+      qc.setQueryData(qk.workspace(workspace.id), workspace);
+      void qc.invalidateQueries({ queryKey: qk.workspaces });
+    },
+  });
 }
 
 export function useWorkspaceQuery(workspaceId: number) {

@@ -23,6 +23,8 @@ import {
 } from '#modules/scim/mappings';
 import {
   WorkspaceCandidateListResponse,
+  WorkspaceCreationResponse,
+  createWorkspaceBody,
   WorkspaceListResponse,
   WorkspaceManagerListResponse,
   WorkspaceResponse,
@@ -35,6 +37,8 @@ import {
 } from './model';
 import {
   addAdmin,
+  createOwnWorkspace,
+  workspaceCreation,
   deleteWorkspace,
   getWorkspace,
   listManagerCandidates,
@@ -45,9 +49,8 @@ import {
 } from './service';
 
 // A workspace owns teams. Only its owner and admins manage it; everyone else sees it
-// through the teams they are in. No route creates one: sign-up and sign-in make each
-// person's own (@repo/auth), and an edition that lets a person own more mounts its route
-// on createOwnWorkspace. SCIM of its own is there only where a build sets SCIM up per
+// through the teams they are in. Creation uses the same locked policy check as
+// ownership transfer; personal workspace policy still applies. SCIM of its own is there only where a build sets SCIM up per
 // workspace (setWorkspaceScim in @repo/auth): its owner sets it up, and the identity
 // provider decides who has access to the workspace. The instance's is set up in god mode.
 export const workspaceRoutes = new Elysia({ name: 'workspaces', detail: { tags: ['Workspaces'] } })
@@ -61,6 +64,31 @@ export const workspaceRoutes = new Elysia({ name: 'workspaces', detail: { tags: 
       description: 'The workspaces you manage or hold a team in, with your standing in each.',
     },
   })
+
+  .get('/workspaces/creation', ({ user }) => workspaceCreation(requireUser(user)), {
+    response: { 200: WorkspaceCreationResponse, ...errors(401) },
+    detail: {
+      summary: 'Get workspace creation permission',
+      description: 'Whether you may create another workspace.',
+    },
+  })
+
+  .post(
+    '/workspaces',
+    async ({ user, body, set }) => {
+      const id = await createOwnWorkspace(requireUser(user), body.name.trim());
+      set.status = 201;
+      return getWorkspace(id, 'owner');
+    },
+    {
+      body: createWorkspaceBody,
+      response: { 201: WorkspaceResponse, ...errors(400, 401, 403, 409) },
+      detail: {
+        summary: 'Create a workspace',
+        description: 'Create a workspace owned by your account, subject to instance policy.',
+      },
+    },
+  )
 
   .get(
     '/workspaces/:workspaceId',

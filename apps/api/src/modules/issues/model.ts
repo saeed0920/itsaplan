@@ -98,6 +98,7 @@ export const IssueResponse = t.Object({
   // through cycleId.
   cycle: t.Nullable(t.Object({ id: t.Number(), name: t.String(), status: t.String() })),
   assigneeUserId: t.Nullable(t.String()),
+  assigneeUserIds: t.Array(t.String()),
   delegateUserId: t.Nullable(t.String()),
   columnId: t.Number(),
   // The issue this one is a subtask of, or null. Create and update set it.
@@ -327,6 +328,7 @@ export const IssueSearchHitResponse = t.Object({
   parentId: t.Nullable(t.Number()),
   parent: t.Nullable(t.Object({ id: t.Number(), identifier: t.String(), title: t.String() })),
   assigneeUserId: t.Nullable(t.String()),
+  assigneeUserIds: t.Array(t.String()),
   delegateUserId: t.Nullable(t.String()),
   priority: t.Nullable(t.String()),
   dueDate: t.Nullable(t.String()),
@@ -442,7 +444,17 @@ export const IssueCycleResponse = t.Object({
 
 export const projectKeyParams = t.Object({ projectKey: t.String() });
 
+const assigneeUserIds = t.Optional(
+  t.Array(t.String({ minLength: 1 }), {
+    maxItems: 100,
+    uniqueItems: true,
+    description:
+      'All assigned project member ids, primary first. Empty clears assignments. Do not send with assigneeUserId.',
+  }),
+);
+
 export const createIssueBody = t.Object({
+  assigneeUserIds,
   typeId: t.Optional(
     t.Nullable(t.Integer({ description: 'Issue type id, or null. From get_project.' })),
   ),
@@ -508,6 +520,7 @@ export const createIssueBody = t.Object({
 export const bulkUpdateIssuesBody = t.Object({
   ids: t.Array(t.Integer(), { minItems: 1, description: 'Issue ids to update.' }),
   patch: t.Object({
+    assigneeUserIds,
     columnId: t.Optional(t.Integer()),
     typeId: t.Optional(t.Nullable(t.Integer())),
     initiativeId: t.Optional(t.Nullable(t.Integer())),
@@ -642,6 +655,7 @@ export const moveIssueBody = t.Object({
 });
 
 export const updateIssueBody = t.Object({
+  assigneeUserIds,
   columnId: t.Optional(t.Integer({ description: 'Move the issue to this column (state) id.' })),
   position: t.Optional(t.Number({ description: 'Ordering position within the column.' })),
   typeId: t.Optional(t.Nullable(t.Integer({ description: 'New issue type id, or null.' }))),

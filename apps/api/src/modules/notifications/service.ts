@@ -191,6 +191,7 @@ export async function notifyIssueChange(input: {
   issueId: number;
   actorUserId: string | null;
   assignedUserId?: string | null;
+  assignedUserIds?: string[];
   assignedActivityId?: number | null;
   statusChanged?: boolean;
   statusActivityId?: number | null;
@@ -198,29 +199,28 @@ export async function notifyIssueChange(input: {
   const { projectId, issueId, actorUserId: actor } = input;
   const rows: NewNotificationRow[] = [];
 
-  if (input.assignedUserId) {
-    await autoWatchIssue(projectId, issueId, [input.assignedUserId]);
-    if (input.assignedUserId !== actor) {
-      const members = await keepProjectMembers(projectId, [input.assignedUserId]);
-      if (members.has(input.assignedUserId)) {
-        rows.push({
-          userId: input.assignedUserId,
-          projectId,
-          issueId,
-          sourceActivityId: input.assignedActivityId ?? null,
-          type: 'assigned',
-          actorUserId: actor,
-        });
-      }
-    }
+  const assigned = new Set(
+    input.assignedUserIds ?? (input.assignedUserId ? [input.assignedUserId] : []),
+  );
+  await autoWatchIssue(projectId, issueId, [...assigned]);
+  const members = await keepProjectMembers(projectId, [...assigned]);
+  for (const userId of members) {
+    if (userId === actor) continue;
+    rows.push({
+      userId,
+      projectId,
+      issueId,
+      sourceActivityId: input.assignedActivityId ?? null,
+      type: 'assigned',
+      actorUserId: actor,
+    });
   }
 
   if (input.statusChanged) {
-    const assigned = input.assignedUserId ?? null;
     const watchers = await watcherUserIds(projectId, issueId);
     for (const userId of watchers) {
       // Skip the actor and anyone already told they were just assigned.
-      if (userId === actor || userId === assigned) continue;
+      if (userId === actor || assigned.has(userId)) continue;
       rows.push({
         userId,
         projectId,

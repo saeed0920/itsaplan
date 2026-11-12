@@ -659,6 +659,7 @@ export interface IssueSnapshot {
   initiativeId: number | null;
   cycleId: number | null;
   assigneeUserId: string | null;
+  assigneeUserIds?: string[];
   delegateUserId: string | null;
   priority: string | null;
   estimatePoints: number | null;
@@ -719,11 +720,17 @@ export async function logIssueUpdate(
       from: await cycleSide(before.cycleId),
       to: await cycleSide(after.cycleId),
     });
-  if (before.assigneeUserId !== after.assigneeUserId)
+  const oldAssignees =
+    before.assigneeUserIds ?? (before.assigneeUserId ? [before.assigneeUserId] : []);
+  const newAssignees =
+    after.assigneeUserIds ?? (after.assigneeUserId ? [after.assigneeUserId] : []);
+  const addedAssignees = newAssignees.filter((id) => !oldAssignees.includes(id));
+  const removedAssignees = oldAssignees.filter((id) => !newAssignees.includes(id));
+  for (let i = 0; i < Math.max(removedAssignees.length, addedAssignees.length); i++)
     events.push({
       action: 'assignee',
-      from: await userSide(before.assigneeUserId),
-      to: await userSide(after.assigneeUserId),
+      from: await userSide(removedAssignees[i] ?? null),
+      to: await userSide(addedAssignees[i] ?? null),
     });
   if (before.delegateUserId !== after.delegateUserId)
     events.push({
@@ -768,7 +775,7 @@ export async function logIssueUpdate(
   // Inbox notifications for the events with a dedicated notification type: a new
   // assignee, a status change, and the mentions a rewritten description added. Each
   // links back to its activity row.
-  const assigneeChanged = before.assigneeUserId !== after.assigneeUserId;
+  const assigneeChanged = addedAssignees.length > 0;
   const statusChanged = before.columnId !== after.columnId;
   const descriptionChanged = before.description !== after.description;
   if (!assigneeChanged && !statusChanged && !descriptionChanged) return;
@@ -784,7 +791,7 @@ export async function logIssueUpdate(
       projectId: row.projectId,
       issueId: after.id,
       actorUserId: actorId(actor),
-      assignedUserId: assigneeChanged ? after.assigneeUserId : null,
+      assignedUserIds: addedAssignees,
       assignedActivityId: idByAction.get('assignee') ?? null,
       statusChanged,
       statusActivityId: idByAction.get('status') ?? null,

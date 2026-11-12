@@ -209,6 +209,7 @@ export function useOtherProjectIssueSearch(
 export function useUpdateIssue(projectKey: string | null) {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: ['updateIssue'],
     mutationFn: ({ id, patch }: { id: number; patch: IssuePatch }) => updateIssue(id, patch),
     onMutate: async ({ id, patch }) => {
       if (!projectKey) return {};
@@ -227,10 +228,12 @@ export function useUpdateIssue(projectKey: string | null) {
       if (ctx?.prev && ctx.key) qc.setQueryData(ctx.key, ctx.prev);
     },
     onSettled: (_data, _err, { id }) => {
-      if (projectKey) void qc.invalidateQueries({ queryKey: qk.boardIssues(projectKey) });
-      void qc.invalidateQueries({ queryKey: qk.issue(id) });
-      void qc.invalidateQueries({ queryKey: qk.feed(id) });
       invalidateGroupings(qc);
+      return Promise.all([
+        projectKey ? qc.invalidateQueries({ queryKey: qk.boardIssues(projectKey) }) : undefined,
+        qc.invalidateQueries({ queryKey: qk.issue(id) }),
+        qc.invalidateQueries({ queryKey: qk.feed(id) }),
+      ]);
     },
   });
 }

@@ -1,3 +1,4 @@
+import { issueAssigneeIds, toggleAssignee } from '@/utils/assignees';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
@@ -191,15 +192,16 @@ export function useIssueCommands(
               id: 'issue.assignee.none',
               label: t('noAssignee'),
               icon: <CircleDashed />,
-              checked: issue.assigneeUserId == null,
-              run: () => patch({ assigneeUserId: null }),
+              checked: issueAssigneeIds(issue).length === 0,
+              run: () => patch({ assigneeUserIds: [] }),
             },
             ...members.map((a) => ({
               id: `issue.assignee.${a.userId}`,
               label: a.name,
               icon: <User />,
-              checked: a.userId === issue.assigneeUserId,
-              run: () => patch({ assigneeUserId: a.userId }),
+              checked: issueAssigneeIds(issue).includes(a.userId),
+              run: () =>
+                patch({ assigneeUserIds: toggleAssignee(issueAssigneeIds(issue), a.userId) }),
             })),
           ],
         },

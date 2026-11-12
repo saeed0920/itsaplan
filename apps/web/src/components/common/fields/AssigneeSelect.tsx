@@ -1,62 +1,82 @@
 import { type ReactNode } from 'react';
 import { CircleDashed } from 'lucide-react';
+import { useIsMutating } from '@tanstack/react-query';
 import type { Assignee } from '@/lib/api/endpoints/projects';
 import { useSession } from '@/lib/auth-client';
+import { toggleAssignee } from '@/utils/assignees';
 import Avatar from '@/components/common/Avatar';
 import { Pill } from './Pill';
 import PopoverPick, { type PickItem } from './PopoverPick';
 import { useTranslations } from 'next-intl';
 
-// The assignee of an issue is a project member. `assignees` is the project's full
-// candidate list (members and agents); this control filters it to members. Agents
-// are set through DelegateSelect instead. The signed-in member is pulled out into a
-// "Team me" group at the top; everyone else falls under "Members".
-export default function AssigneeSelect({
-  assignees,
-  value,
-  onChange,
-  placeholder,
-  readOnly,
-  trigger,
-}: {
+type Props = {
   assignees: Assignee[];
-  value: string | null;
-  onChange: (userId: string | null) => void;
   placeholder?: string;
   readOnly?: boolean;
-  // Replaces the pill where a caller needs its own (a Timeline cell).
   trigger?: ReactNode;
-}) {
+  issueId?: number;
+} & (
+  | {
+      multiple: true;
+      value: string[];
+      onChange: (ids: string[]) => void;
+    }
+  | {
+      multiple?: false;
+      value: string | null;
+      onChange: (id: string | null) => void;
+    }
+);
+
+export default function AssigneeSelect(props: Props) {
+  const { assignees, placeholder, readOnly, trigger, issueId } = props;
   const t = useTranslations('issue.fieldSelects');
   const none = t('noAssignee');
   const { data: session } = useSession();
-  const currentUserId = session?.user.id ?? null;
+  const pending =
+    useIsMutating({
+      mutationKey: ['updateIssue'],
+      predicate: (mutation) =>
+        issueId !== undefined &&
+        (mutation.state.variables as { id?: number } | undefined)?.id === issueId,
+    }) > 0;
+  const ids = props.multiple ? props.value : [props.value ?? ''].filter(Boolean);
   const members = assignees.filter((a) => a.kind === 'member');
-  const assignee = members.find((a) => a.userId === value);
-
+  const selected = members.filter((a) => ids.includes(a.userId));
+  const select = (id: string | null) => {
+    if (pending) return;
+    if (props.multiple) props.onChange(id === null ? [] : toggleAssignee(ids, id));
+    else props.onChange(id);
+  };
   const toItem = (a: Assignee): PickItem => ({
     key: a.userId,
     search: a.name,
     icon: <Avatar name={a.name} image={a.image} className="size-4 text-[8px]" />,
     label: a.name,
-    selected: a.userId === value,
-    onSelect: () => onChange(a.userId),
+    selected: ids.includes(a.userId),
+    disabled: pending,
+    onSelect: () => select(a.userId),
   });
-  const me = members.find((a) => a.userId === currentUserId);
-  const others = members.filter((a) => a.userId !== currentUserId);
+  const me = members.find((a) => a.userId === session?.user.id);
+  const names = selected.map((a) => a.name).join(', ');
 
   return (
     <PopoverPick
       readOnly={readOnly}
+      closeOnSelect={!props.multiple}
       trigger={
         trigger ?? (
-          <Pill active={!!assignee}>
-            {assignee ? (
-              <Avatar name={assignee.name} image={assignee.image} className="size-4 text-[8px]" />
+          <Pill active={selected.length > 0} aria-busy={pending} title={names || none}>
+            {selected.length ? (
+              <Avatar
+                name={selected[0].name}
+                image={selected[0].image}
+                className="size-4 text-[8px]"
+              />
             ) : (
               <CircleDashed />
             )}
-            <span className="truncate">{assignee?.name ?? placeholder ?? none}</span>
+            <span className="truncate">{names || placeholder || none}</span>
           </Pill>
         )
       }
@@ -68,13 +88,14 @@ export default function AssigneeSelect({
           search: none,
           icon: <CircleDashed />,
           label: none,
-          selected: value == null,
-          onSelect: () => onChange(null),
+          selected: ids.length === 0,
+          disabled: pending,
+          onSelect: () => select(null),
         },
       ]}
       groups={[
         ...(me ? [{ heading: t('you'), items: [toItem(me)] }] : []),
-        { heading: t('members'), items: others.map(toItem) },
+        { heading: t('members'), items: members.filter((a) => a !== me).map(toItem) },
       ]}
     />
   );

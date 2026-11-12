@@ -40,6 +40,7 @@ export interface Issue {
   // The cycle this issue is planned into, expanded to id + name for rendering, or
   // null. Set through updateIssue by cycleId.
   cycle: CycleRef | null;
+  assigneeUserIds?: string[];
   assigneeUserId: string | null;
   delegateUserId: string | null;
   columnId: number;
@@ -91,6 +92,7 @@ export interface IssueSearchHit {
   initiativeId: number | null;
   cycleId: number | null;
   parentId: number | null;
+  assigneeUserIds?: string[];
   assigneeUserId: string | null;
   delegateUserId: string | null;
   priority: string | null;
@@ -249,6 +251,7 @@ export interface IssueWithWatchers extends IssueRelations {
 }
 
 export interface NewIssueInput {
+  assigneeUserIds?: string[];
   typeId?: number | null;
   initiativeId?: number | null;
   cycleId?: number | null;
@@ -269,6 +272,7 @@ export interface NewIssueInput {
 // The fields a bulk update can set on many issues at once (the board-relevant
 // subset of IssuePatch: no title/description/position).
 export interface BulkIssuePatch {
+  assigneeUserIds?: string[];
   columnId?: number;
   typeId?: number | null;
   initiativeId?: number | null;
@@ -283,6 +287,7 @@ export interface BulkIssuePatch {
 }
 
 export interface IssuePatch {
+  assigneeUserIds?: string[];
   columnId?: number;
   position?: number;
   typeId?: number | null;

@@ -192,6 +192,7 @@ const ExportedIssue = t.Object({
   dueDate: t.Nullable(t.String()),
   parentIdentifier: t.Nullable(t.String()),
   assigneeEmail: t.Nullable(t.String()),
+  assigneeEmails: t.Array(t.String()),
   comments: t.Array(ExportedComment),
   relations: t.Array(ExportedRelation),
 });

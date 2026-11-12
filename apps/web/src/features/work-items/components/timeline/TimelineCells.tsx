@@ -2,11 +2,11 @@ import type { ProjectDetail } from '@/lib/api/endpoints/projects';
 import type { Issue, IssuePatch } from '@/lib/api/endpoints/issues';
 import { type Maps } from '@/utils/project';
 import { useSetFieldValue, useUpdateIssue } from '@/services/issues.service';
-import { columnKey, type TableColumn } from '../../utils/table';
+import { columnKey } from '../../utils/table';
 import { type TimelineColumn } from '../../utils/timeline';
 import { EditableBuiltinCell } from '../shared/EditableBuiltinCell';
 import { EditableCustomCell } from '../shared/EditableCustomCell';
-import { PersonValue } from '../shared/PersonValue';
+
 import { TableBuiltinCell } from '../table/TableBuiltinCell';
 
 // The property cells of one timeline row, after its title. They sit outside the
@@ -42,7 +42,7 @@ export function TimelineCells({
           readOnly={readOnly}
           onPatch={patch}
         >
-          <BuiltinValue column={column.col} issue={issue} maps={maps} />
+          <TableBuiltinCell column={column.col} issue={issue} maps={maps} />
         </EditableBuiltinCell>
       ) : (
         <EditableCustomCell
@@ -58,14 +58,4 @@ export function TimelineCells({
       )}
     </div>
   ));
-}
-
-// A built-in value as the Table shows it, except that the assignee and the
-// delegate are named.
-function BuiltinValue({ column, issue, maps }: { column: TableColumn; issue: Issue; maps: Maps }) {
-  if (column !== 'assignee' && column !== 'delegate') {
-    return <TableBuiltinCell column={column} issue={issue} maps={maps} />;
-  }
-  const personId = column === 'assignee' ? issue.assigneeUserId : issue.delegateUserId;
-  return <PersonValue person={personId != null ? maps.assigneeById.get(personId) : undefined} />;
 }

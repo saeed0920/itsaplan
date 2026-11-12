@@ -86,13 +86,15 @@ export default function NewIssueModal({
   const { data: session } = useSession();
   // Assignee defaults to the creating user unless the caller set one explicitly
   // (defaults.assigneeUserId is null for the "No assignee" board group).
-  const [assigneeUserId, setAssigneeUserId] = useState<string | null>(() => {
-    if (defaults.assigneeUserId !== undefined) return defaults.assigneeUserId;
+  const [assigneeUserIds, setAssigneeUserIds] = useState<string[]>(() => {
+    if (defaults.assigneeUserIds !== undefined) return defaults.assigneeUserIds;
+    if (defaults.assigneeUserId !== undefined)
+      return defaults.assigneeUserId ? [defaults.assigneeUserId] : [];
     const userId = session?.user.id;
     return userId != null &&
       project.assignees.some((a) => a.kind === 'member' && a.userId === userId)
-      ? userId
-      : null;
+      ? [userId]
+      : [];
   });
   const [delegateUserId, setDelegateUserId] = useState<string | null>(
     defaults.delegateUserId ?? null,
@@ -233,7 +235,7 @@ export default function NewIssueModal({
     if (next.columnId != null) setColumnId(next.columnId);
     if (next.typeId != null) setTypeId(next.typeId);
     if (next.priority != null) setPriority(next.priority);
-    if (next.assigneeUserId != null) setAssigneeUserId(next.assigneeUserId);
+    if (next.assigneeUserId != null) setAssigneeUserIds([next.assigneeUserId]);
     if (next.labelIds.length > 0) setLabelIds(next.labelIds);
   }
 
@@ -251,7 +253,7 @@ export default function NewIssueModal({
           typeId,
           initiativeId,
           cycleId: cycle?.id ?? null,
-          assigneeUserId,
+          assigneeUserIds,
           delegateUserId,
           priority: priority || null,
           estimatePoints,
@@ -393,8 +395,9 @@ export default function NewIssueModal({
           {project.assignees.some((a) => a.kind === 'member') && (
             <AssigneeSelect
               assignees={project.assignees}
-              value={assigneeUserId}
-              onChange={setAssigneeUserId}
+              multiple
+              value={assigneeUserIds}
+              onChange={setAssigneeUserIds}
               placeholder={tFields('assignee')}
             />
           )}

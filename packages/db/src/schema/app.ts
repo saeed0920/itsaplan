@@ -10,6 +10,7 @@ import {
   type AnyPgColumn,
   date,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -1601,9 +1602,28 @@ export const issue = pgTable(
   ],
 );
 
-// The number an issue held in a project it was moved out of, so a link to the old
-// identifier still resolves. project.next_sequence never hands that number out again,
-// so it cannot collide with an issue of that project.
+// Additional assignees; issue.assignee_user_id remains the legacy primary.
+export const issueAssignee = pgTable(
+  'issue_assignee',
+  {
+    issueId: integer('issue_id')
+      .notNull()
+      .references(() => issue.id, { onDelete: 'cascade' }),
+    projectId: integer('project_id').notNull(),
+    userId: text('user_id').notNull(),
+    position: integer('position').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.issueId, t.userId] }),
+    foreignKey({
+      columns: [t.projectId, t.userId],
+      foreignColumns: [projectMember.projectId, projectMember.userId],
+    }).onDelete('cascade'),
+    index('issue_assignee_member_idx').on(t.projectId, t.userId),
+  ],
+);
+
+// Old issue numbers continue to resolve after a project move.
 export const issueKeyAlias = pgTable(
   'issue_key_alias',
   {

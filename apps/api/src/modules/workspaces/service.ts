@@ -287,8 +287,8 @@ export type WorkspaceCreationBlock = 'restricted' | 'limit';
 
 // Whether a person may create a workspace, and if not, why: the instance keeps
 // workspaces to its owner, or they already own as many as one person may. An agent's bot
-// user is no person and creates none. No core route calls this or createOwnWorkspace;
-// an edition that lets a person own more workspaces mounts its route on them.
+// user is no person and creates none. The creation route and ownership transfer both
+// enforce this policy.
 export async function workspaceCreation(
   current: AuthUser,
   executor: DbExecutor = db,

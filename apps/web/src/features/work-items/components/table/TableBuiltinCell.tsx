@@ -1,3 +1,5 @@
+import AssigneeAvatars from '@/components/common/fields/AssigneeAvatars';
+import { issueAssigneeIds } from '@/utils/assignees';
 import { CalendarClock } from 'lucide-react';
 import type { Issue } from '@/lib/api/endpoints/issues';
 import { type Maps } from '@/utils/project';
@@ -5,7 +7,6 @@ import { formatDurationShort, formatShortDate, isDueOverdue } from '@/utils/date
 import { formatMinutes } from '@/utils/estimate';
 import { usePriorityLabel } from '@/hooks/usePriorityLabel';
 import {
-  AssigneeAvatar,
   DateBadge,
   DelegateAvatar,
   LabelBadge,
@@ -78,13 +79,8 @@ export function TableBuiltinCell({
       );
     }
     case 'assignee': {
-      const assignee =
-        issue.assigneeUserId != null ? maps.assigneeById.get(issue.assigneeUserId) : undefined;
-      return (
-        <div className="flex">
-          {assignee ? <AssigneeAvatar name={assignee.name} image={assignee.image} /> : DASH}
-        </div>
-      );
+      const ids = issueAssigneeIds(issue);
+      return ids.length ? <AssigneeAvatars ids={ids} people={maps.assigneeById} /> : DASH;
     }
     case 'delegate': {
       const delegate =

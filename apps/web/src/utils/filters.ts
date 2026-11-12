@@ -107,7 +107,7 @@ function builtinSetValues(
     case 'statusType':
       return [columnStateType.get(issue.columnId) ?? null];
     case 'assignee':
-      return [issue.assigneeUserId];
+      return issue.assigneeUserIds?.length ? issue.assigneeUserIds : [issue.assigneeUserId];
     case 'delegate':
       return [issue.delegateUserId];
     case 'priority':

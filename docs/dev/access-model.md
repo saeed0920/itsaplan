@@ -103,7 +103,12 @@ or on the request body is checked in the handler or the service.
   sets `sharingTeamsOnly` and the chosen teams. While any of them closes a project, its links
   answer 404 and a new link gets 403. Revoking still works. The tokens stay, so the same links open
   when sharing is on again.
-- **Personal workspaces:** no route creates a workspace. While `personalWorkspaces` is on in the
+- **Workspace creation:** `POST /workspaces` creates a workspace owned by the authenticated account.
+  `GET /workspaces/creation` reports permission for the UI. Both use `workspaceCreation`; the POST
+  uses `createOwnWorkspace`, which locks the user before enforcing the cap. The self-hosted default
+  cap is 0 (unlimited). Agents remain refused, and ordinary accounts remain refused while
+  `personalWorkspaces` is off. Names must contain non-whitespace text and be at most60 characters.
+- **Personal workspaces:** while `personalWorkspaces` is on in the
   auth settings (the default), a person who owns none gets one at sign-up, or on the next request
   through `ensurePersonalWorkspace` in `authContext`. While it is off, only the instance owner gets
   one, and anyone else works in the teams they are added to. An agent's bot user never owns one.
