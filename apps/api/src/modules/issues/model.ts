@@ -117,6 +117,7 @@ export const IssueResponse = t.Object({
   createdAt: t.String(),
   updatedAt: t.String(),
   archivedAt: t.Nullable(t.String()),
+  archiveId: t.Nullable(t.Number()),
   statusSince: t.String(),
   shareToken: t.Nullable(t.String()),
   shareExtended: t.Boolean(),
@@ -540,7 +541,21 @@ export const bulkAddLabelsBody = t.Object({
   add: t.Array(t.Integer(), { minItems: 1, description: 'Label ids to add.' }),
 });
 
+const ArchiveId = t.Optional(t.Nullable(t.Integer({ minimum: 1 })));
+
+export const IssueArchiveBody = t.Object({
+  name: t.String({ minLength: 1, maxLength: 80, pattern: '\\S' }),
+});
+export const issueArchiveParams = t.Object({ projectKey: t.String(), archiveId: t.Numeric() });
+export const IssueArchiveResponse = t.Object({
+  id: t.Number(),
+  projectId: t.Number(),
+  name: t.String(),
+  createdAt: t.String(),
+});
+
 export const bulkArchiveIssuesBody = t.Object({
+  archiveId: ArchiveId,
   ids: t.Array(t.Integer(), { minItems: 1, description: 'Issue ids to archive.' }),
   subtasks: t.Optional(SubtaskModeSchema),
   newParentId: t.Optional(NewParentIdSchema),
@@ -770,6 +785,7 @@ export const commentParams = t.Object({
 
 export const archiveIssueBody = t.Optional(
   t.Object({
+    archiveId: ArchiveId,
     subtasks: t.Optional(SubtaskModeSchema),
     newParentId: t.Optional(NewParentIdSchema),
   }),

@@ -65,6 +65,7 @@ export interface Issue {
   // When the issue was archived (hidden from the board but kept), or null when it
   // is active. Set by the archive action or the worker's auto-archive sweep.
   archivedAt: string | null;
+  archiveId?: number | null;
   // When the issue entered its current column (or createdAt if it never moved).
   // Drives the "time in current status" badge.
   statusSince: string;
@@ -357,10 +358,11 @@ export const bulkArchiveIssues = (
   projectKey: string,
   ids: number[],
   subtasks?: SubtaskDisposition,
+  archiveId?: number | null,
 ) =>
   request<{ archived: number }>(`/projects/${projectKey}/issues/bulk/archive`, {
     method: 'POST',
-    body: JSON.stringify({ ids, ...subtasks }),
+    body: JSON.stringify({ ids, ...subtasks, archiveId }),
   });
 
 export const bulkDeleteIssues = (
@@ -374,12 +376,19 @@ export const bulkDeleteIssues = (
   });
 
 // Archive/restore: hide an issue from the board (kept, restorable) or bring it
-// back. The board excludes archived issues; the archive settings section lists them.
-export const archiveIssue = (id: number, subtasks?: SubtaskDisposition) =>
+// back. The board excludes archived issues; the Archive tab lists them.
+export const archiveIssue = (
+  id: number,
+  subtasks?: SubtaskDisposition,
+  archiveId?: number | null,
+) =>
   request<Issue>(`/issues/${id}/archive`, {
     method: 'POST',
-    body: JSON.stringify(subtasks ?? {}),
+    body: JSON.stringify({ ...subtasks, archiveId }),
   });
+
+export const listArchivedIssues = (projectKey: string) =>
+  request<Issue[]>(`/projects/${projectKey}/issues/archived`);
 
 export const restoreIssue = (id: number) =>
   request<Issue>(`/issues/${id}/restore`, { method: 'POST' });

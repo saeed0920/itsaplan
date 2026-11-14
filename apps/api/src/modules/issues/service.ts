@@ -19,6 +19,7 @@ import {
   team,
   issueLink,
 } from '@repo/db';
+import { assertIssueArchive } from './archives';
 import { assigneeIdsSql, assigneeCondition, replaceAdditionalAssignees } from './assignees';
 import { alias } from 'drizzle-orm/pg-core';
 import {
@@ -139,6 +140,7 @@ export interface IssueRow {
   // When the issue was archived (hidden from the board but kept), or null when it
   // is active. Set by the archive action or the worker's auto-archive sweep.
   archivedAt: string | null;
+  archiveId: number | null;
   // When the issue entered its current column: the newest status-change activity,
   // or createdAt when it has never changed column. Lets the board show how long an
   // issue has sat in its current state. Populated by listIssues/getIssue; mapIssue
@@ -192,6 +194,7 @@ function mapIssue(
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
     archivedAt: row.archivedAt ? iso(row.archivedAt) : null,
+    archiveId: row.archiveId,
     statusSince: iso(row.createdAt),
     shareToken: shared ? row.shareToken : null,
     shareExtended: shared && row.shareExtended,
@@ -694,25 +697,42 @@ export async function listIssuesInProjects(
   return hits;
 }
 
-// Archives an issue: sets archived_at so it drops off the board and lists, keeping
-// the row for restore. Idempotent (archiving an archived issue is a no-op re-stamp
-// avoided by the archived_at guard). Records a feed entry. Returns the updated
-// issue, or null if it does not exist. Archiving is reversible, so nothing the issue
-// carries is dropped — the agents' conversation threads included.
+// Moving between collections preserves the original archive date. Omitting archiveId
+// keeps the collection of an already archived issue.
 export async function archiveIssue(
   id: number,
   actorUserId?: string | null,
+  archiveId?: number | null,
 ): Promise<IssueRow | null> {
-  const [row] = await db
+  if (archiveId != null) {
+    const [current] = await db
+      .select({ projectId: issue.projectId })
+      .from(issue)
+      .where(eq(issue.id, id));
+    if (!current) return null;
+    await assertIssueArchive(current.projectId, archiveId);
+  }
+  const [firstArchived] = await db
     .update(issue)
-    .set({ archivedAt: sql`now()` })
+    .set({ archivedAt: sql`now()`, ...(archiveId !== undefined && { archiveId }) })
     .where(and(eq(issue.id, id), isNull(issue.archivedAt)))
     .returning({ id: issue.id });
-  if (!row) {
-    // Either not found, or already archived. Distinguish so a missing issue 404s.
-    return getIssue(id);
+  let row = firstArchived;
+  if (!row && archiveId !== undefined) {
+    [row] = await db
+      .update(issue)
+      .set({ archiveId })
+      .where(
+        and(
+          eq(issue.id, id),
+          isNotNull(issue.archivedAt),
+          sql`${issue.archiveId} IS DISTINCT FROM ${archiveId}`,
+        ),
+      )
+      .returning({ id: issue.id });
   }
-  await recordActivity(id, [{ action: 'archived' }], actorUserId);
+  if (!row) return getIssue(id);
+  if (firstArchived) await recordActivity(id, [{ action: 'archived' }], actorUserId);
   const archived = await getIssue(id);
   if (archived) await emitIssueEvent('issue.updated', archived, actorUserId);
   return archived;
@@ -726,7 +746,7 @@ export async function restoreIssue(
 ): Promise<IssueRow | null> {
   const [row] = await db
     .update(issue)
-    .set({ archivedAt: null })
+    .set({ archivedAt: null, archiveId: null })
     .where(and(eq(issue.id, id), isNotNull(issue.archivedAt)))
     .returning({ id: issue.id });
   if (!row) return getIssue(id);
@@ -1653,9 +1673,11 @@ export async function bulkArchiveIssues(
   projectId: number,
   ids: number[],
   actorUserId?: string | null,
+  archiveId?: number | null,
 ): Promise<number> {
+  await assertIssueArchive(projectId, archiveId);
   const valid = await issuesInProject(projectId, ids);
-  for (const id of valid) await archiveIssue(id, actorUserId);
+  for (const id of valid) await archiveIssue(id, actorUserId, archiveId);
   return valid.length;
 }
 

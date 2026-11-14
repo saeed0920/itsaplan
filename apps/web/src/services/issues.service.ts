@@ -47,12 +47,14 @@ import { qk } from '@/services/queryKeys';
 // hanging under it, and is required whenever it has any.
 interface IssueRemoval {
   id: number;
+  archiveId?: number | null;
   subtasks?: SubtaskDisposition;
 }
 
 // The same for a board multi-select, which removes many issues in one request.
 interface BulkRemoval {
   ids: number[];
+  archiveId?: number | null;
   subtasks?: SubtaskDisposition;
 }
 
@@ -304,7 +306,8 @@ export function useDeleteIssue(projectKey: string | null) {
 export function useArchiveIssue(projectKey: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, subtasks }: IssueRemoval) => archiveIssue(id, subtasks),
+    mutationFn: ({ id, subtasks, archiveId }: IssueRemoval) =>
+      archiveIssue(id, subtasks, archiveId),
     onSuccess: async (_data, { id }) => {
       if (projectKey) {
         await qc.cancelQueries({ queryKey: qk.boardIssues(projectKey) });
@@ -470,11 +473,15 @@ export function useBulkAddLabels(projectKey: string) {
 // re-add the removed issues (see the single-issue delete for the same reasoning).
 function useBulkRemoval(
   projectKey: string,
-  run: (ids: number[], subtasks?: SubtaskDisposition) => Promise<unknown>,
+  run: (
+    ids: number[],
+    subtasks?: SubtaskDisposition,
+    archiveId?: number | null,
+  ) => Promise<unknown>,
 ) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ ids, subtasks }: BulkRemoval) => run(ids, subtasks),
+    mutationFn: ({ ids, subtasks, archiveId }: BulkRemoval) => run(ids, subtasks, archiveId),
     onSuccess: async (_data, { ids }) => {
       const idSet = new Set(ids);
       await qc.cancelQueries({ queryKey: qk.boardIssues(projectKey) });
@@ -493,8 +500,8 @@ function useBulkRemoval(
 }
 
 export function useBulkArchiveIssues(projectKey: string) {
-  return useBulkRemoval(projectKey, (ids, subtasks) =>
-    bulkArchiveIssues(projectKey, ids, subtasks),
+  return useBulkRemoval(projectKey, (ids, subtasks, archiveId) =>
+    bulkArchiveIssues(projectKey, ids, subtasks, archiveId),
   );
 }
 

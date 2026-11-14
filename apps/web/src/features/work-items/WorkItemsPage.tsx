@@ -1,5 +1,9 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { useArchivedIssuesQuery } from '@/services/issueArchives.service';
+import { archivePath, viewPath } from '@/utils/paths';
+import ArchiveView from './components/archive/ArchiveView';
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useShell } from '@/context/shellContext';
@@ -37,10 +41,11 @@ interface TimelineCollapseState {
   groups: Set<string>;
 }
 
-// The work items page (the index and /view/:viewId child routes of the Shell).
+// Work items layouts and the Archive tab share the project's view navigation.
 // It renders the saved-view tabs, the inline edit bar and the selected layout;
 // the project data and the view editor come from the Shell through React context.
-export default function WorkItemsPage() {
+export default function WorkItemsPage({ archive = false }: { archive?: boolean }) {
+  const router = useRouter();
   const t = useTranslations('workItems');
   const tViews = useTranslations('views');
   const tCommon = useTranslations('common');
@@ -57,9 +62,16 @@ export default function WorkItemsPage() {
   // Live board: refetch the issues when anything on the board changes, so another
   // user's create/move/edit shows without a manual reload.
   const projectKey = project?.project.ref ?? '';
+  const archived = useArchivedIssuesQuery(
+    projectKey && can('work_items', 'read') ? projectKey : null,
+  );
   useLiveRefresh({
     scope: project ? revScope.board(project.project.id) : null,
-    targets: [qk.boardIssues(projectKey)],
+    targets: [
+      qk.boardIssues(projectKey),
+      qk.archivedIssues(projectKey),
+      qk.issueArchives(projectKey),
+    ],
   });
 
   // With an optional section off, its property and grouping are left out of what
@@ -181,7 +193,12 @@ export default function WorkItemsPage() {
         views={views}
         projectKey={project.project.ref}
         activeViewId={editor.activeViewId}
-        onSelect={editor.selectView}
+        onSelect={(id) => (archive ? router.push(viewPath(projectKey, id)) : editor.selectView(id))}
+        archive={{
+          active: archive,
+          count: archived.data?.length,
+          onSelect: () => router.push(archivePath(projectKey)),
+        }}
         onNewView={editor.beginNewView}
         onEdit={editor.beginEditView}
         onDelete={(v) => void editor.deleteView(v)}
@@ -192,14 +209,14 @@ export default function WorkItemsPage() {
         onResetRow={editor.resetTabRow}
         onPinProjectOrder={editor.pinProjectOrder}
         onToggleFilter={editor.toggleFilters}
-        displayControl={<DisplayPopover {...displayProps} />}
+        displayControl={archive ? null : <DisplayPopover {...displayProps} />}
       />
 
       {/* The filter row applies to the current screen only; it never writes to a
           view. The edit bar above it (icon picker + name input + Cancel/Save)
           appears only after Edit view or New view, and Save is the one write:
           it updates the active view or creates one from the live state. */}
-      {(editor.editing || editor.showFilters) && (
+      {!archive && (editor.editing || editor.showFilters) && (
         <div className="border-b">
           {editor.editing && (
             <div className="flex items-center gap-2 px-3 py-2">
@@ -255,21 +272,25 @@ export default function WorkItemsPage() {
         </div>
       )}
 
-      <div className="relative flex-1 overflow-hidden">
-        <IssueLinksProvider
-          issues={project.issues}
-          columns={project.columns}
-          enabled={settings.showLinks}
-        >
-          <SubtasksProvider
+      {archive ? (
+        <ArchiveView key={projectKey} project={project} onOpenIssue={onOpenIssue} />
+      ) : (
+        <div className="relative flex-1 overflow-hidden">
+          <IssueLinksProvider
             issues={project.issues}
-            enabled={settings.showSubtasks}
-            collapsed={settings.collapseSubtasks}
+            columns={project.columns}
+            enabled={settings.showLinks}
           >
-            {renderView()}
-          </SubtasksProvider>
-        </IssueLinksProvider>
-      </div>
+            <SubtasksProvider
+              issues={project.issues}
+              enabled={settings.showSubtasks}
+              collapsed={settings.collapseSubtasks}
+            >
+              {renderView()}
+            </SubtasksProvider>
+          </IssueLinksProvider>
+        </div>
+      )}
     </>
   );
 }

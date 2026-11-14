@@ -1,5 +1,9 @@
 # Plan UI extensions
 
+## Named issue archives
+
+Add a fixed Archive tab beside All and saved views, visible on mobile too. Reuse existing tab styling, cards, modal inputs, select controls and ListPager. Project members with work-item edit permission create/rename collections and manually archive or restore any status. Search and collection filters reset paging; existing and automatic archives use Unfiled. Archived cards open issue details and expose Restore and Move actions without draggable board behavior. Preserve subtasks confirmation, loading/error/empty states, translated labels, keyboard access and logical RTL spacing. Keep current fonts, semantic colors, spacing and breakpoints. Verify create/rename, single/bulk moves, cross-project refusal, restore, archived count, mobile and Persian RTL. No automatic monthly rules or deletion of collections in this scope.
+
 ## Calendar preferences
 
 Reuse existing account preference rows, workspace settings sections and shadcn selects. Personal calendar selection is independent of interface language; workspace managers choose Saturday, Sunday or Monday as week start. Existing explicit calendar-view choices stay selectable, with a workspace-default option. Keep typography, semantic colors, spacing and responsive breakpoints unchanged. New labels use logical RTL alignment, accessible names and existing pending/success/error feedback. Compose generated calendar through DateCalendar; do not edit generated primitives. Verify Persian RTL and English desktop/mobile, keyboard month navigation, Nowruz, Esfand leap years and unchanged ISO dates.

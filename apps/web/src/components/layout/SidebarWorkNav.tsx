@@ -54,7 +54,8 @@ export default function SidebarWorkNav({
     !!projectKey &&
     (pathname === projectPath(projectKey) ||
       pathname.startsWith(`${projectPath(projectKey)}/view`) ||
-      routeSub === 'issue');
+      routeSub === 'issue' ||
+      routeSub === 'archive');
 
   // With favorites, Work items becomes a sub-list: the unfiltered board plus one
   // entry per favorite view.

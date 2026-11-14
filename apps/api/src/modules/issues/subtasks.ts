@@ -1,5 +1,5 @@
 import { db, issue, project as projectTable } from '@repo/db';
-import { and, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { HttpError } from '#shared/lib';
 import { archiveIssue, deleteIssue, restoreIssue, updateIssue } from './service';
@@ -114,8 +114,9 @@ export async function disposeSubtasksOf(
   action: 'delete' | 'archive',
   disposition: SubtaskDisposition | undefined,
   actorUserId?: string | null,
+  archiveId?: number | null,
 ): Promise<AttachmentRow[]> {
-  const parents = await issuesWithSubtasks(projectId, issueIds);
+  const parents = await issuesWithSubtasks(projectId, issueIds, action === 'archive');
   if (parents.length === 0) return [];
   if (!disposition)
     throw new HttpError(409, 'Choose what happens to the subtasks: cascade, detach or reassign');
@@ -126,20 +127,37 @@ export async function disposeSubtasksOf(
   const attachments: AttachmentRow[] = [];
   for (const parentId of parents)
     attachments.push(
-      ...(await disposeSubtasks(parentId, action, disposition.mode, newParentId, actorUserId)),
+      ...(await disposeSubtasks(
+        parentId,
+        action,
+        disposition.mode,
+        newParentId,
+        actorUserId,
+        archiveId,
+      )),
     );
   return attachments;
 }
 
 // The ids of the project's issues that have subtasks, out of the given set.
-async function issuesWithSubtasks(projectId: number, ids: number[]): Promise<number[]> {
+async function issuesWithSubtasks(
+  projectId: number,
+  ids: number[],
+  activeOnly: boolean,
+): Promise<number[]> {
   if (ids.length === 0) return [];
   const parent = alias(issue, 'parent_issue');
   const rows = await db
     .selectDistinct({ parentId: issue.parentId })
     .from(issue)
     .innerJoin(parent, eq(parent.id, issue.parentId))
-    .where(and(inArray(issue.parentId, ids), eq(parent.projectId, projectId)));
+    .where(
+      and(
+        inArray(issue.parentId, ids),
+        eq(parent.projectId, projectId),
+        activeOnly ? isNull(parent.archivedAt) : undefined,
+      ),
+    );
   return rows.flatMap((row) => (row.parentId === null ? [] : [row.parentId]));
 }
 
@@ -151,6 +169,7 @@ async function disposeSubtasks(
   mode: SubtaskMode,
   newParentId: number | null,
   actorUserId?: string | null,
+  archiveId?: number | null,
 ): Promise<AttachmentRow[]> {
   const subtasks = await listSubtasks(issueId);
 
@@ -159,7 +178,7 @@ async function disposeSubtasks(
     for (const subtask of subtasks) {
       if (action === 'delete')
         attachments.push(...((await deleteIssue(subtask.id, actorUserId)) ?? []));
-      else await archiveIssue(subtask.id, actorUserId);
+      else if (!subtask.archived) await archiveIssue(subtask.id, actorUserId, archiveId);
     }
     return attachments;
   }

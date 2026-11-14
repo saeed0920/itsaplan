@@ -208,11 +208,7 @@ export function BulkActionBar({ project }: { project: ProjectDetail }) {
                 size="sm"
                 className="h-8 gap-1.5 px-2"
                 disabled={disabled}
-                onClick={() => {
-                  // Only an archive that has subtasks to ask about is confirmed.
-                  if (subtasks > 0) setConfirming('archive');
-                  else void bulk.archiveAll(ids);
-                }}
+                onClick={() => setConfirming('archive')}
               >
                 <Archive className="size-4" />
                 {t('archive')}
@@ -258,10 +254,10 @@ export function BulkActionBar({ project }: { project: ProjectDetail }) {
           action={confirming}
           ids={ids}
           subtaskCount={subtasks}
-          onConfirm={(disposition) =>
+          onConfirm={(disposition, archiveId) =>
             confirming === 'delete'
               ? bulk.deleteAll(ids, disposition)
-              : bulk.archiveAll(ids, disposition)
+              : bulk.archiveAll(ids, disposition, archiveId)
           }
           onClose={() => setConfirming(null)}
         />

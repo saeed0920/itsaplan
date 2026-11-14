@@ -1508,6 +1508,22 @@ export const cycle = pgTable(
   ],
 );
 
+export const issueArchive = pgTable(
+  'issue_archive',
+  {
+    id: serial('id').primaryKey(),
+    projectId: integer('project_id')
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('issue_archive_project_name_uq').on(t.projectId, t.name),
+    unique('issue_archive_id_project_uq').on(t.id, t.projectId),
+  ],
+);
+
 export const issue = pgTable(
   'issue',
   {
@@ -1516,6 +1532,7 @@ export const issue = pgTable(
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
     sequenceNumber: integer('sequence_number').notNull(),
+    archiveId: integer('archive_id').references(() => issueArchive.id, { onDelete: 'set null' }),
     typeId: integer('type_id').references(() => issueType.id, {
       onDelete: 'set null',
     }),
@@ -1578,6 +1595,15 @@ export const issue = pgTable(
   },
   (t) => [
     unique().on(t.projectId, t.sequenceNumber),
+    foreignKey({
+      columns: [t.archiveId, t.projectId],
+      foreignColumns: [issueArchive.id, issueArchive.projectId],
+      name: 'issue_archive_project_fk',
+    }),
+    check(
+      'issue_archive_requires_archived_check',
+      sql`${t.archiveId} IS NULL OR ${t.archivedAt} IS NOT NULL`,
+    ),
     check('issue_estimate_points_check', sql`${t.estimatePoints} >= 0`),
     check('issue_estimate_minutes_check', sql`${t.estimateMinutes} >= 0`),
     // Backs the board/list read (active issues of a project) and the worker's

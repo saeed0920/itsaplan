@@ -172,6 +172,7 @@ export async function moveIssue(
         .update(issue)
         .set({
           projectId: target.id,
+          archiveId: null,
           sequenceNumber: Number(seqRow.first) + i,
           columnId: p.newColumnId,
           typeId: p.newTypeId,

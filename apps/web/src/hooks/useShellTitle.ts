@@ -32,6 +32,7 @@ export function useShellTitle(
 ) {
   const t = useTranslations('nav');
   const tScreens = useTranslations('meta.screens');
+  const tViews = useTranslations('views');
   const sectionText = useSettingsSectionText();
   const sections = useProjectSections(project);
   const known = (slug: string | null): slug is string => sections.some((s) => s.slug === slug);
@@ -44,6 +45,7 @@ export function useShellTitle(
       if (!aiTeamSection) return [sectionText(AI_AGENTS_SECTION.slug).label];
       return [known(aiTeamSection) ? sectionText(aiTeamSection).label : t('aiTeam')];
     }
+    if (sub === 'archive') return [tViews('archive')];
     if (sub === 'view') {
       const view = views.find((v) => v.id === route.activeViewId);
       return view ? [view.name] : [];
