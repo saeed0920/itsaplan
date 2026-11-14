@@ -62,6 +62,7 @@ export const workspace = pgTable(
     // Who creates teams in it: the owner alone, the owner and admins (managers), or
     // anyone in one of its teams (members).
     teamCreation: text('team_creation').notNull().default('owner'),
+    weekStart: integer('week_start').notNull().default(0),
     // Runs of its internal agents in flight at once; 0 sets no limit of its own.
     maxConcurrentRuns: integer('max_concurrent_runs').notNull().default(0),
     // Whether its projects may have public links. Its owner and admins set it.
@@ -75,6 +76,7 @@ export const workspace = pgTable(
       'workspace_team_creation_check',
       sql`${t.teamCreation} IN ('owner', 'managers', 'members')`,
     ),
+    check('workspace_week_start_check', sql`${t.weekStart} IN (0, 1, 6)`),
     check('workspace_max_concurrent_runs_check', sql`${t.maxConcurrentRuns} >= 0`),
   ],
 );
@@ -312,6 +314,7 @@ export const userPreference = pgTable(
       .primaryKey()
       .references(() => user.id, { onDelete: 'cascade' }),
     timezone: text('timezone').notNull().default('UTC'),
+    calendar: text('calendar').notNull().default('gregory'),
     locale: text('locale').notNull().default('en'),
     theme: text('theme').notNull().default('system'),
     issueOpenMode: text('issue_open_mode').notNull().default('panel'),
@@ -335,6 +338,7 @@ export const userPreference = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    check('user_preference_calendar_check', sql`${t.calendar} IN ('gregory', 'persian')`),
     check('user_preference_theme_check', sql`${t.theme} IN ('light', 'dark', 'system')`),
     check('user_preference_issue_open_mode_check', sql`${t.issueOpenMode} IN ('panel', 'page')`),
     check(

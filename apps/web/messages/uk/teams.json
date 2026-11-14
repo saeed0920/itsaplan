@@ -685,6 +685,10 @@
     "projectToggleAria": "Перемкнути доступ MCP для {project}"
   },
   "workspace": {
+    "weekStart": {
+      "title": "First day of week",
+      "description": "Week start for date pickers and default calendar views in this workspace’s projects."
+    },
     "rail": "Воркспейси",
     "create": "Новий воркспейс",
     "createUnavailableTitle": "Більше воркспейсів",

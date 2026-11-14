@@ -123,6 +123,12 @@
     "language": "Langue",
     "languageDescription": "La langue de l'interface, de vos e-mails et du bot Telegram.",
     "timezone": "Fuseau horaire",
+    "calendar": "Calendar system",
+    "calendarDescription": "Calendar for displaying and selecting dates, independent of interface language.",
+    "calendarOptions": {
+      "gregory": "Gregorian",
+      "persian": "Persian (Solar Hijri)"
+    },
     "timezoneDescription": "Choisissez le fuseau dans lequel vous travaillez.",
     "timezonePlaceholder": "Sélectionnez un fuseau horaire",
     "timezoneEmpty": "Aucun fuseau horaire trouvé.",

@@ -9,6 +9,7 @@ export interface WorkspaceSummary {
   role: WorkspaceRole | null;
   color: string | null;
   canCreateTeam: boolean;
+  weekStart: 0 | 1 | 6;
 }
 
 // Who creates teams in a workspace: the owner alone, the owner and admins, or anyone in
@@ -24,6 +25,7 @@ export interface Workspace {
   name: string;
   role: WorkspaceRole;
   managerCount: number;
+  weekStart: 0 | 1 | 6;
   color: string | null;
   teamCreation: TeamCreation;
   maxConcurrentRuns: number;
@@ -36,6 +38,7 @@ export interface Workspace {
 }
 
 export interface WorkspacePatch {
+  weekStart?: 0 | 1 | 6;
   name?: string;
   color?: string | null;
   teamCreation?: TeamCreation;

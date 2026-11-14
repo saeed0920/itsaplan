@@ -1,5 +1,9 @@
 # Plan UI extensions
 
+## Calendar preferences
+
+Reuse existing account preference rows, workspace settings sections and shadcn selects. Personal calendar selection is independent of interface language; workspace managers choose Saturday, Sunday or Monday as week start. Existing explicit calendar-view choices stay selectable, with a workspace-default option. Keep typography, semantic colors, spacing and responsive breakpoints unchanged. New labels use logical RTL alignment, accessible names and existing pending/success/error feedback. Compose generated calendar through DateCalendar; do not edit generated primitives. Verify Persian RTL and English desktop/mobile, keyboard month navigation, Nowruz, Esfand leap years and unchanged ISO dates.
+
 ## Multiple issue assignees
 
 Existing issue editor, create dialog, table and timeline use searchable member multi-selection with checkmarks; selected members remain visible after each toggle. Reuse PopoverPick, Avatar, Pill and translations. Escape closes picker, keyboard search/Enter toggles. Read-only shares show values only; reduced shares hide all assignees. Keep existing tokens, typography, responsive breakpoints and logical RTL spacing. No redesign or new dependency.

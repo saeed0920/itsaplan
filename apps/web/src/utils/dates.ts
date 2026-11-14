@@ -1,4 +1,5 @@
 import type { StateType } from '@/lib/api/endpoints/columns';
+import type { CalendarSystem } from '@/lib/api/endpoints/userPreferences';
 import { DEFAULT_LOCALE } from '@/i18n/locales';
 
 // Date helpers shared by the project views. Kept separate from project grouping so
@@ -19,11 +20,14 @@ export function getDisplayLocale(): string {
   return displayLocale;
 }
 
-// The locale tag handed to Intl. Persian defaults to the solar Hijri calendar, but the
-// calendar grids and the date picker are Gregorian, so a date written in one and
-// picked in the other would not match; pin Persian to the Gregorian calendar.
+let displayCalendar: CalendarSystem = 'gregory';
+
+export function setDisplayCalendar(calendar: CalendarSystem): void {
+  displayCalendar = calendar;
+}
+
 export function getIntlLocale(): string {
-  return displayLocale === 'fa' ? 'fa-u-ca-gregory' : displayLocale;
+  return new Intl.Locale(displayLocale, { calendar: displayCalendar }).toString();
 }
 
 // The zone timestamps are rendered in, from the user's account preferences. The API
@@ -95,7 +99,11 @@ export function formatDate(value: string): string {
 // The year a moment falls in, in the display zone. A fixed locale: the value is
 // compared, never shown.
 function zonedYear(date: Date): string {
-  return date.toLocaleDateString('en-US', { year: 'numeric', ...zoneOption() });
+  return date.toLocaleDateString('en-US', {
+    calendar: displayCalendar,
+    year: 'numeric',
+    ...zoneOption(),
+  });
 }
 
 // "Jul 2, 14:05" for a moment in time, rendered in the user's zone. A moment from
@@ -203,8 +211,8 @@ export function formatTime(value: string, { seconds = false } = {}): string {
 
 // "July 2026" for a calendar date the caller already built in local time (the
 // timeline's month band), so no zone is applied.
-export function formatMonthYear(date: Date): string {
-  return date.toLocaleDateString(getIntlLocale(), { month: 'long', year: 'numeric' });
+export function formatMonthYear(date: Date, calendar: CalendarSystem = displayCalendar): string {
+  return date.toLocaleDateString(getIntlLocale(), { calendar, month: 'long', year: 'numeric' });
 }
 
 // The calendar day a moment falls on in the user's zone, as "YYYY-MM-DD". Used to

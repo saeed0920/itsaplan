@@ -1,3 +1,4 @@
+import type { CalendarSystem } from '@/lib/api/endpoints/userPreferences';
 import { startOfDay } from 'date-fns';
 import type { CustomField } from '@/lib/api/endpoints/customFields';
 import type { ProjectDetail } from '@/lib/api/endpoints/projects';
@@ -148,6 +149,7 @@ export function buildTimeline({
   viewportW,
   labelW,
   dayW,
+  calendar,
 }: {
   project: ProjectDetail;
   filters: FilterSet;
@@ -160,6 +162,7 @@ export function buildTimeline({
   viewportW: number;
   labelW: number;
   dayW: number;
+  calendar?: CalendarSystem;
 }): TimelineModel {
   const sorted = sortIssues(project.issues, sort, project);
   const groups = buildGroups(project, group, groupLabels, filters);
@@ -248,5 +251,5 @@ export function buildTimeline({
     if (!max || row.aggregateSpan.end > max) max = row.aggregateSpan.end;
   }
 
-  return { rows, ...buildDayTrack({ min, max, viewportW, labelW, dayW }) };
+  return { rows, ...buildDayTrack({ min, max, viewportW, labelW, dayW, calendar }) };
 }

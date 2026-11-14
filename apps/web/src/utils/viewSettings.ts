@@ -117,8 +117,8 @@ export type TimelineScale = 'week' | 'month' | 'quarter';
 export type BuiltinDateField = 'dueDate' | 'startDate';
 export type DateField = BuiltinDateField | CustomFieldKey;
 
-// date-fns weekStartsOn: 0 Sunday, 1 Monday.
-export type WeekStart = 0 | 1;
+// date-fns weekStartsOn: 0 Sunday, 1 Monday, 6 Saturday.
+export type WeekStart = 0 | 1 | 6;
 
 export interface ViewSettings {
   sort: Sort;
@@ -149,7 +149,7 @@ export interface ViewSettings {
   // not update this saved preference.
   timelineCollapseAll: boolean;
   calendarDateField: DateField;
-  weekStart: WeekStart;
+  weekStart: WeekStart | null;
   // Group keys collapsed into the "Hidden columns" panel on the flat project (see
   // KanbanBoard). Keys are namespaced by grouping field (c<id>/a<id>/p<v>/t<id>/
   // f<fieldId>u<userId>), so a set from one grouping never matches another. Empty
@@ -179,7 +179,7 @@ const COMMON: Omit<ViewSettings, 'group' | 'subgroup' | 'properties' | 'sort'> =
   timelineScale: 'week',
   timelineCollapseAll: false,
   calendarDateField: 'dueDate',
-  weekStart: 0,
+  weekStart: null,
   hiddenGroups: [],
   collapsedGroups: [],
   pinnedGroup: null,
@@ -317,7 +317,8 @@ export function normalizeViewSettings(
       (typeof s.calendarDateField === 'string' && isCustomFieldKey(s.calendarDateField))
         ? s.calendarDateField
         : d.calendarDateField,
-    weekStart: s.weekStart === 0 || s.weekStart === 1 ? s.weekStart : d.weekStart,
+    weekStart:
+      s.weekStart === 0 || s.weekStart === 1 || s.weekStart === 6 ? s.weekStart : d.weekStart,
     hiddenGroups: Array.isArray(s.hiddenGroups)
       ? (s.hiddenGroups as unknown[]).filter((x): x is string => typeof x === 'string')
       : d.hiddenGroups,

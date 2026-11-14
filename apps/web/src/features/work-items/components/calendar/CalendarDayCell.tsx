@@ -1,3 +1,4 @@
+import { useFormatter } from 'next-intl';
 import { useDroppable } from '@dnd-kit/core';
 import type { ProjectDetail } from '@/lib/api/endpoints/projects';
 import type { Issue } from '@/lib/api/endpoints/issues';
@@ -28,6 +29,7 @@ export function CalendarDayCell({
   dot: (issue: Issue) => string;
   onOpen: (id: number) => void;
 }) {
+  const format = useFormatter();
   const { setNodeRef, isOver } = useDroppable({ id: `day:${dateKey}` });
 
   let dayNumberClass = 'text-muted-foreground/50';
@@ -40,13 +42,13 @@ export function CalendarDayCell({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-h-0 flex-col gap-0.5 overflow-hidden border-t border-l p-1 [&:nth-child(-n+7)]:border-t-0 [&:nth-child(7n+1)]:border-l-0',
+        'flex min-h-0 flex-col gap-0.5 overflow-hidden border-s border-t p-1 [&:nth-child(-n+7)]:border-t-0 [&:nth-child(7n+1)]:border-s-0',
         !inMonth && 'bg-muted/20',
         isOver && 'bg-accent/40',
       )}
     >
       <div className="flex justify-end px-1">
-        <span className={cn('text-xs', dayNumberClass)}>{dayNumber}</span>
+        <span className={cn('text-xs', dayNumberClass)}>{format.number(dayNumber)}</span>
       </div>
       <div className="flex flex-col gap-0.5 overflow-y-auto">
         {issues.slice(0, MAX_CHIPS).map((issue) => (

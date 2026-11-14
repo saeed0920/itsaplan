@@ -60,6 +60,8 @@
     "quarter": "Квартал"
   },
   "weekStart": {
+    "default": "Workspace default",
+    "6": "Saturday",
     "0": "Неділя",
     "1": "Понеділок"
   },

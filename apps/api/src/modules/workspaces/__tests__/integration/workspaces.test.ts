@@ -115,10 +115,24 @@ describe('workspaces', () => {
       const outsider = await signUpTestUser({ team: false });
 
       expect((await ownerApi.workspaces.get()).data).toEqual([
-        { id: workspaceId, name: 'Root', role: 'owner', color: null, canCreateTeam: true },
+        {
+          id: workspaceId,
+          name: 'Root',
+          role: 'owner',
+          color: null,
+          weekStart: 0,
+          canCreateTeam: true,
+        },
       ]);
       expect((await authedApi(member.cookie).workspaces.get()).data).toEqual([
-        { id: workspaceId, name: 'Root', role: null, color: null, canCreateTeam: false },
+        {
+          id: workspaceId,
+          name: 'Root',
+          role: null,
+          color: null,
+          weekStart: 0,
+          canCreateTeam: false,
+        },
       ]);
       expect((await authedApi(outsider.cookie).workspaces.get()).data).toEqual([]);
     });
@@ -167,6 +181,38 @@ describe('workspaces', () => {
   });
 
   describe('settings', () => {
+    it('lets managers set week start, exposes it to project members and rejects invalid days', async () => {
+      const { ownerApi, workspaceId, teamId } = await setup();
+      const member = await addPerson(ownerApi, teamId);
+      const memberApi = authedApi(member.cookie);
+      const created = await createProject(ownerApi, { key: 'CAL', name: 'Calendar' });
+      const projectKey = created.data!.ref;
+      await ownerApi
+        .projects({ projectKey })
+        .members.post({ userId: member.userId, role: 'member' });
+      expect((await memberApi.workspaces({ workspaceId }).patch({ weekStart: 6 })).status).toBe(
+        404,
+      );
+      for (const weekStart of [6, 1, 0] as const) {
+        const updated = await ownerApi.workspaces({ workspaceId }).patch({ weekStart });
+        expect(updated.status).toBe(200);
+        expect(updated.data?.weekStart).toBe(weekStart);
+        expect(
+          (await memberApi.projects({ projectKey }).get()).data?.project.workspaceWeekStart,
+        ).toBe(weekStart);
+      }
+      await makeAdmin(ownerApi, workspaceId, member);
+      expect((await memberApi.workspaces({ workspaceId }).patch({ weekStart: 6 })).status).toBe(
+        200,
+      );
+      await ownerApi.workspaces({ workspaceId }).patch({ name: 'Calendar team' });
+      expect((await ownerApi.workspaces({ workspaceId }).get()).data?.weekStart).toBe(6);
+      for (const value of [-1, 2, 5, 7, 1.5, '6', null]) {
+        expect(
+          (await ownerApi.workspaces({ workspaceId }).patch({ weekStart: value as 6 })).status,
+        ).toBe(400);
+      }
+    });
     it('lets a manager recolour it, and refuses a colour that is not #rrggbb', async () => {
       const { ownerApi, workspaceId, teamId } = await setup();
       const admin = await addPerson(ownerApi, teamId);
@@ -420,7 +466,14 @@ describe('workspaces', () => {
       expect(own).toMatchObject({ name: 'Jane Doe', role: 'owner' });
       expect(own!.id).not.toBe(workspaceId);
       expect((await ownerApi.workspaces.get()).data).toEqual([
-        { id: workspaceId, name: 'Root', role: 'owner', color: null, canCreateTeam: true },
+        {
+          id: workspaceId,
+          name: 'Root',
+          role: 'owner',
+          color: null,
+          weekStart: 0,
+          canCreateTeam: true,
+        },
       ]);
     });
 

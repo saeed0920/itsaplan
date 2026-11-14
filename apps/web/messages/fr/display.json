@@ -60,6 +60,8 @@
     "quarter": "Trimestre"
   },
   "weekStart": {
+    "default": "Workspace default",
+    "6": "Saturday",
     "0": "Dimanche",
     "1": "Lundi"
   },

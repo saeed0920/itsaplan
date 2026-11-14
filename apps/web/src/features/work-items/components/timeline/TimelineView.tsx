@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { DndContext } from '@dnd-kit/core';
 import { buildMaps, issueColor, type WorkItemsViewProps } from '@/utils/project';
+import { useCalendar } from '@/hooks/useCalendar';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useGroupLabels } from '@/hooks/useGroupLabels';
 import { useElementWidth } from '@/hooks/useElementWidth';
@@ -46,6 +47,7 @@ export default function TimelineView({
   viewId,
   readOnly,
 }: TimelineViewProps) {
+  const { calendar } = useCalendar();
   const { can } = usePermissions(project);
   const groupLabels = useGroupLabels();
   const barsReadOnly = readOnly || !can('work_items', 'edit');
@@ -97,6 +99,7 @@ export default function TimelineView({
       viewportW,
       labelW,
       dayW: DAY_W,
+      calendar,
     });
 
   function renderRow(row: TimelineRow) {

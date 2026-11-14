@@ -1,3 +1,4 @@
+import type { CalendarSystem } from '@/lib/api/endpoints/userPreferences';
 import type { Cycle } from '@/lib/api/endpoints/cycles';
 import { buildDayTrack, type DayTrack } from '@/utils/timelineTrack';
 import { cycleSpan, type CycleSpan } from './cycleDates';
@@ -26,11 +27,13 @@ export function buildCycleTimeline({
   viewportW,
   labelW,
   dayW,
+  calendar,
 }: {
   cycles: Cycle[];
   viewportW: number;
   labelW: number;
   dayW: number;
+  calendar?: CalendarSystem;
 }): CycleTimelineModel {
   const rows: CycleTimelineItem[] = [];
   let min: Date | null = null;
@@ -46,5 +49,5 @@ export function buildCycleTimeline({
     }
   }
 
-  return { rows, ...buildDayTrack({ min, max, viewportW, labelW, dayW }) };
+  return { rows, ...buildDayTrack({ min, max, viewportW, labelW, dayW, calendar }) };
 }

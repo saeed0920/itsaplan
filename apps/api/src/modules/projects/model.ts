@@ -153,6 +153,7 @@ export const ProjectResponse = t.Object({
   description: t.String(),
   mcpEnabled: t.Boolean(),
   teamMcpEnabled: t.Boolean(),
+  workspaceWeekStart: t.Number(),
   // The optional sections, toggled in Settings -> General. All on by default; a
   // disabled section is hidden in the web app and its rows are kept.
   initiativesEnabled: t.Boolean(),

@@ -1,8 +1,10 @@
-import { addDays, startOfMonth, startOfWeek } from 'date-fns';
+import { addDays, startOfWeek } from 'date-fns';
+import { calendarLib } from '@/lib/calendar';
+import type { CalendarSystem } from '@/lib/api/endpoints/userPreferences';
 import type { CustomField } from '@/lib/api/endpoints/customFields';
 import type { Issue } from '@/lib/api/endpoints/issues';
 import { issueDay } from '@/utils/calendarFields';
-import type { BuiltinDateField, ViewSettings } from '@/utils/viewSettings';
+import type { BuiltinDateField, WeekStart } from '@/utils/viewSettings';
 
 // The calendar layout for the visible month: issues bucketed by their chosen date
 // (a built-in column or a date custom field), the rest collected as unscheduled,
@@ -20,10 +22,11 @@ export function buildCalendarModel(
   builtin: BuiltinDateField,
   // The custom field the issues are placed by, or null for the built-in column.
   custom: CustomField | null,
-  weekStart: ViewSettings['weekStart'],
+  weekStart: WeekStart,
   cursor: Date,
   // The seven weekday names, Sunday first, in the reader's language.
   weekdayNames: string[],
+  calendar: CalendarSystem = 'gregory',
 ): CalendarModel {
   const byDay = new Map<string, Issue[]>();
   const unscheduled: Issue[] = [];
@@ -39,7 +42,9 @@ export function buildCalendarModel(
   }
 
   const weekdays = [...weekdayNames.slice(weekStart), ...weekdayNames.slice(0, weekStart)];
-  const gridStart = startOfWeek(startOfMonth(cursor), { weekStartsOn: weekStart });
+  const gridStart = startOfWeek(calendarLib(calendar).startOfMonth(cursor), {
+    weekStartsOn: weekStart,
+  });
   const days = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
 
   return { byDay, unscheduled, weekdays, days };

@@ -15,7 +15,10 @@ export const WorkspaceCreationResponse = t.Object({
   reason: t.Nullable(t.UnionEnum(['restricted', 'limit'])),
 });
 
+const WeekStart = t.Union([t.Literal(0), t.Literal(1), t.Literal(6)]);
+
 export const updateWorkspaceBody = t.Object({
+  weekStart: t.Optional(WeekStart),
   name: t.Optional(t.String({ minLength: 1, maxLength: 60 })),
   color: t.Optional(t.Nullable(t.String({ pattern: '^#[0-9a-fA-F]{6}$' }))),
   // t.UnionEnum defaults to its first value, which would fill in the setting for a
@@ -75,6 +78,7 @@ export const WorkspaceListResponse = t.Array(
     }),
     color: t.Nullable(t.String()),
     canCreateTeam: t.Boolean(),
+    weekStart: WeekStart,
   }),
 );
 
@@ -83,6 +87,7 @@ export const WorkspaceResponse = t.Object({
   name: t.String(),
   role: workspaceRole,
   managerCount: t.Number(),
+  weekStart: WeekStart,
   color: t.Nullable(t.String()),
   teamCreation: t.UnionEnum([...TEAM_CREATION]),
   maxConcurrentRuns: t.Number(),

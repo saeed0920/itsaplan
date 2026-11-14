@@ -9,7 +9,12 @@ import {
   useUpdateAccountPreferences,
 } from '@/services/preferences.service';
 import { setLocaleCookie } from '@/i18n/cookie';
-import { canonicalTimezone, setDisplayLocale, setDisplayTimezone } from '@/utils/dates';
+import {
+  canonicalTimezone,
+  setDisplayCalendar,
+  setDisplayLocale,
+  setDisplayTimezone,
+} from '@/utils/dates';
 
 // Applies the account preferences that are read app-wide rather than at one call
 // site: the theme (handed to next-themes), the display timezone (handed to the date
@@ -34,7 +39,18 @@ export default function PreferencesSync() {
   // paint already comes out in the rendered language instead of the default one.
   // Browser only — the formatters hold it in a module variable, which on the server
   // is one value shared by every request being rendered at that moment.
-  if (typeof window !== 'undefined') setDisplayLocale(renderedLocale);
+  if (typeof window !== 'undefined') {
+    setDisplayLocale(renderedLocale);
+    setDisplayCalendar(prefs?.calendar ?? 'gregory');
+  }
+
+  const appliedCalendar = useRef('gregory');
+  useEffect(() => {
+    const calendar = prefs?.calendar ?? 'gregory';
+    if (calendar === appliedCalendar.current) return;
+    appliedCalendar.current = calendar;
+    router.refresh();
+  }, [prefs?.calendar, router]);
 
   useEffect(() => {
     if (timezone) setDisplayTimezone(timezone);

@@ -2,7 +2,7 @@ import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { formatDate, parseDate, toDateStr } from '@/utils/dates';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import { DateCalendar as Calendar } from './DateCalendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Pill } from './Pill';
 import ReadOnlyPill from './ReadOnlyPill';

@@ -2,6 +2,7 @@ import { issueAssigneeIds, toggleAssignee } from '@/utils/assignees';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useCalendar } from '@/hooks/useCalendar';
 import {
   Archive,
   ArchiveRestore,
@@ -70,6 +71,7 @@ export default function IssueMenu({
 }) {
   const t = useTranslations('issue.menu');
   const format = useFormatter();
+  const { calendar } = useCalendar();
   const tCommon = useTranslations('common');
   const { can } = usePermissions();
   const { data: session } = useSession();
@@ -313,7 +315,7 @@ export default function IssueMenu({
                         weekday: 'short',
                         month: 'short',
                         day: 'numeric',
-                        calendar: 'gregory',
+                        calendar,
                       })}
                     </ContextMenuShortcut>
                   </ContextMenuItem>

@@ -685,6 +685,10 @@
     "projectToggleAria": "{project} için MCP erişimini aç/kapat"
   },
   "workspace": {
+    "weekStart": {
+      "title": "First day of week",
+      "description": "Week start for date pickers and default calendar views in this workspace’s projects."
+    },
     "rail": "Çalışma Alanları",
     "create": "Yeni çalışma alanı",
     "createUnavailableTitle": "Daha fazla çalışma alanı",

@@ -10,12 +10,11 @@ import {
 import { isCalendarField } from '@/utils/calendarFields';
 import { byKey } from '@/utils/messageKey';
 import DisplaySection from '@/components/layout/DisplaySection';
-import DisplaySegmented from '@/components/layout/DisplaySegmented';
 import DisplaySettingsRow from '@/components/layout/DisplaySettingsRow';
 import DisplaySettingsSelect from '@/components/layout/DisplaySettingsSelect';
 
 const DATE_FIELDS: BuiltinDateField[] = ['dueDate', 'startDate'];
-const WEEK_STARTS = ['0', '1'] as const;
+const WEEK_STARTS = ['default', '6', '0', '1'] as const;
 
 export default function DisplayCalendarRows({
   settings,
@@ -45,9 +44,11 @@ export default function DisplayCalendarRows({
         />
       </DisplaySettingsRow>
       <DisplaySettingsRow label={t('weekStartsOn')}>
-        <DisplaySegmented
-          value={String(settings.weekStart)}
-          onChange={(v) => onChange({ weekStart: Number(v) as WeekStart })}
+        <DisplaySettingsSelect
+          value={settings.weekStart === null ? 'default' : String(settings.weekStart)}
+          onChange={(v) =>
+            onChange({ weekStart: v === 'default' ? null : (Number(v) as WeekStart) })
+          }
           options={WEEK_STARTS.map((value) => ({ value, label: weekStart(value) }))}
         />
       </DisplaySettingsRow>

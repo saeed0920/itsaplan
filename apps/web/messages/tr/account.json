@@ -123,6 +123,12 @@
     "language": "Dil",
     "languageDescription": "Arayüzün, e-postalarınızın ve Telegram botunun dili.",
     "timezone": "Saat dilimi",
+    "calendar": "Calendar system",
+    "calendarDescription": "Calendar for displaying and selecting dates, independent of interface language.",
+    "calendarOptions": {
+      "gregory": "Gregorian",
+      "persian": "Persian (Solar Hijri)"
+    },
     "timezoneDescription": "Çalıştığınız saat dilimini seçin.",
     "timezonePlaceholder": "Saat dilimi seçin",
     "timezoneEmpty": "Saat dilimi bulunamadı.",

@@ -28,6 +28,7 @@ import { useSession } from '@/lib/auth-client';
 import { useShell } from '@/context/shellContext';
 import { colorDot } from '@/components/common/fields/colorDot';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useCalendar } from '@/hooks/useCalendar';
 import { PRIORITY_FIELDS } from '@/components/common/fields/priorityFields';
 import { usePriorityLabel } from '@/hooks/usePriorityLabel';
 import type { Command, CommandSection } from '@/utils/commands';
@@ -58,6 +59,7 @@ export function useIssueCommands(
   const t = useTranslations('issue.commands');
   const tPriority = useTranslations('common.priority');
   const format = useFormatter();
+  const { calendar } = useCalendar();
   const priorityLabel = usePriorityLabel();
   const presetLabel = useDueDatePresetLabel();
   const { onOpenIssue } = useShell();
@@ -254,7 +256,7 @@ export function useIssueCommands(
               weekday: 'short',
               month: 'short',
               day: 'numeric',
-              calendar: 'gregory',
+              calendar,
             }),
             run: () => patch({ dueDate: toDateStr(p.date) }),
           })),

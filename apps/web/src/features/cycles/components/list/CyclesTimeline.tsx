@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Cycle } from '@/lib/api/endpoints/cycles';
 import { cyclePath } from '@/utils/paths';
+import { useCalendar } from '@/hooks/useCalendar';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import { usePersistedWidth } from '@/hooks/usePersistedWidth';
@@ -26,6 +27,7 @@ export default function CyclesTimeline({
   projectKey: string;
 }) {
   const router = useRouter();
+  const { calendar } = useCalendar();
   const { can } = usePermissions();
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrolledToToday = useRef(false);
@@ -46,7 +48,7 @@ export default function CyclesTimeline({
   const narrow = viewportW < 640;
   const labelW = narrow ? LABEL_NARROW_W : labelWidth;
   const { rows, days, months, trackWidth, todayLeft, todayInRange, dayLines, spanToRect } =
-    buildCycleTimeline({ cycles, viewportW, labelW, dayW: CYCLE_DAY_W });
+    buildCycleTimeline({ cycles, viewportW, labelW, dayW: CYCLE_DAY_W, calendar });
   const { preview, beginDrag } = useCycleDrag({
     projectKey,
     cycles: [...cycles, ...finished],

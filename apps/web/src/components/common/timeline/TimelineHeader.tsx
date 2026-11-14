@@ -1,5 +1,8 @@
+import { useFormatter } from 'next-intl';
 import { type ReactNode } from 'react';
 import { startOfDay } from 'date-fns';
+import { useCalendar } from '@/hooks/useCalendar';
+import { useWeekStart } from '@/hooks/useWeekStart';
 import { daysBetween } from '@/utils/dates';
 import { type MonthLabel } from '@/utils/timelineTrack';
 import { cn } from '@/lib/utils';
@@ -22,6 +25,9 @@ export function TimelineHeader({
   // What the corner over the label column shows; empty when absent.
   corner?: ReactNode;
 }) {
+  const format = useFormatter();
+  const { dateLib } = useCalendar();
+  const weekStart = useWeekStart();
   const today = startOfDay(new Date());
   return (
     <div className="sticky top-0 z-20 flex border-b bg-background">
@@ -44,9 +50,9 @@ export function TimelineHeader({
           {days.map((d, i) => {
             const weekend = d.getDay() === 0 || d.getDay() === 6;
             const isToday = daysBetween(today, d) === 0;
-            // Every day when wide (week); only Mondays when medium (month); none
+            // Every day when wide (week); week starts when medium (month); none
             // when narrow (quarter) — the month labels above carry it.
-            const showNum = dayW >= 20 || (dayW >= 8 && d.getDay() === 1);
+            const showNum = dayW >= 20 || (dayW >= 8 && d.getDay() === weekStart);
             return (
               <div
                 key={i}
@@ -57,7 +63,7 @@ export function TimelineHeader({
                 )}
                 style={{ width: dayW }}
               >
-                {showNum ? d.getDate() : ''}
+                {showNum ? format.number(Number(dateLib.format(d, 'd'))) : ''}
               </div>
             );
           })}

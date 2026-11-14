@@ -1,3 +1,4 @@
+import type { CalendarSystem } from '@/lib/api/endpoints/userPreferences';
 import { startOfDay } from 'date-fns';
 import { addDays, daysBetween, formatMonthYear } from '@/utils/dates';
 
@@ -40,12 +41,14 @@ export function buildDayTrack({
   viewportW,
   labelW,
   dayW,
+  calendar,
 }: {
   min: Date | null;
   max: Date | null;
   viewportW: number;
   labelW: number;
   dayW: number;
+  calendar?: CalendarSystem;
 }): DayTrack {
   const today = startOfDay(new Date());
   const rangeStart = addDays(min ?? today, -3);
@@ -58,7 +61,7 @@ export function buildDayTrack({
 
   const months: MonthLabel[] = [];
   for (let i = 0; i < days.length; i++) {
-    const label = formatMonthYear(days[i]);
+    const label = formatMonthYear(days[i], calendar);
     const last = months[months.length - 1];
     if (last && last.label === label) last.width += dayW;
     else months.push({ label, left: i * dayW, width: dayW });

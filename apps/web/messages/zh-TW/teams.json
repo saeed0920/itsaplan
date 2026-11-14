@@ -685,6 +685,10 @@
     "projectToggleAria": "切換 {project} 的 MCP 存取"
   },
   "workspace": {
+    "weekStart": {
+      "title": "First day of week",
+      "description": "Week start for date pickers and default calendar views in this workspace’s projects."
+    },
     "rail": "工作區",
     "create": "新建工作區",
     "createUnavailableTitle": "更多工作區",

@@ -685,6 +685,10 @@
     "projectToggleAria": "تغییر دسترسی MCP برای {project}"
   },
   "workspace": {
+    "weekStart": {
+      "title": "اولین روز هفته",
+      "description": "روز آغاز هفته برای انتخابگرهای تاریخ و پیش‌فرض نماهای تقویم پروژه‌های این فضای کاری."
+    },
     "rail": "فضاهای کار",
     "create": "فضای کار جدید",
     "createUnavailableTitle": "فضاهای کار بیشتر",

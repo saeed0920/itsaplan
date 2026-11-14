@@ -685,6 +685,10 @@
     "projectToggleAria": "Basculer l'accès MCP pour {project}"
   },
   "workspace": {
+    "weekStart": {
+      "title": "First day of week",
+      "description": "Week start for date pickers and default calendar views in this workspace’s projects."
+    },
     "rail": "Espaces de travail",
     "create": "Nouvel espace de travail",
     "createUnavailableTitle": "Plus d'espaces de travail",

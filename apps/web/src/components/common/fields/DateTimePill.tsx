@@ -8,7 +8,7 @@ import {
   toZonedParts,
 } from '@/utils/dates';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import { DateCalendar as Calendar } from './DateCalendar';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Pill } from './Pill';

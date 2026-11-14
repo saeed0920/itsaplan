@@ -60,6 +60,8 @@
     "quarter": "Kuartal"
   },
   "weekStart": {
+    "default": "Workspace default",
+    "6": "Saturday",
     "0": "Minggu",
     "1": "Senin"
   },

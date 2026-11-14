@@ -1,4 +1,4 @@
-import { Calendar } from '@/components/ui/calendar';
+import { DateCalendar as Calendar } from '@/components/common/fields/DateCalendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 // The calendar behind the "Pick a date…" snooze option. The trigger is an invisible

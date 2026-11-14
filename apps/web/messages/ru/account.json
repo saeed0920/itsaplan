@@ -123,6 +123,12 @@
     "language": "Язык",
     "languageDescription": "Язык интерфейса, ваших писем и Telegram-бота.",
     "timezone": "Часовой пояс",
+    "calendar": "Calendar system",
+    "calendarDescription": "Calendar for displaying and selecting dates, independent of interface language.",
+    "calendarOptions": {
+      "gregory": "Gregorian",
+      "persian": "Persian (Solar Hijri)"
+    },
     "timezoneDescription": "Выберите пояс, в котором работаете.",
     "timezonePlaceholder": "Выберите часовой пояс",
     "timezoneEmpty": "Часовые пояса не найдены.",

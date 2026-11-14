@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { isSameDay, isSameMonth, startOfMonth } from 'date-fns';
+import { isSameDay } from 'date-fns';
+import { useCalendar } from '@/hooks/useCalendar';
 import {
   DndContext,
   DragOverlay,
@@ -33,9 +34,10 @@ export default function CalendarView({
   readOnly,
 }: WorkItemsViewProps) {
   const t = useTranslations('workItems.calendar');
+  const { calendar, dateLib } = useCalendar();
   const updateIssue = useUpdateIssue(project.project.ref);
   const setFieldValue = useSetFieldValue(project.project.ref);
-  const [cursor, setCursor] = useState<Date>(() => startOfMonth(new Date()));
+  const [cursor, setCursor] = useState<Date>(() => new Date());
   const [activeId, setActiveId] = useState<number | null>(null);
   const sensors = useDndSensors(readOnly);
 
@@ -49,9 +51,10 @@ export default function CalendarView({
     project.issues,
     builtinField,
     customFieldDef,
-    settings.weekStart,
+    settings.weekStart ?? project.project.workspaceWeekStart ?? 0,
     cursor,
     WEEKDAY_KEYS.map((key) => t(`weekdays.${key}`)),
+    calendar,
   );
 
   // A drop moves the field the calendar is placed by: the built-in column, or the
@@ -98,7 +101,7 @@ export default function CalendarView({
 
           <div className="grid grid-cols-7 border-b pb-1 text-xs font-medium text-muted-foreground">
             {weekdays.map((d) => (
-              <div key={d} className="truncate px-0.5 text-center sm:px-2 sm:text-left">
+              <div key={d} className="truncate px-0.5 text-center sm:px-2 sm:text-start">
                 {d}
               </div>
             ))}
@@ -112,8 +115,8 @@ export default function CalendarView({
                   key={key}
                   project={project}
                   dateKey={key}
-                  dayNumber={day.getDate()}
-                  inMonth={isSameMonth(day, cursor)}
+                  dayNumber={Number(dateLib.format(day, 'd'))}
+                  inMonth={dateLib.isSameMonth(day, cursor)}
                   isToday={isSameDay(day, today)}
                   issues={byDay.get(key) ?? []}
                   dot={dot}

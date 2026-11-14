@@ -50,9 +50,13 @@ export function useUpdateWorkspace(workspaceId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (patch: WorkspacePatch) => updateWorkspace(workspaceId, patch),
-    onSuccess: (workspace) => {
+    onSuccess: (workspace, patch) => {
       qc.setQueryData(qk.workspace(workspaceId), workspace);
       void qc.invalidateQueries({ queryKey: qk.workspaces });
+      if (patch.weekStart !== undefined) {
+        void qc.invalidateQueries({ queryKey: qk.anyProject });
+        void qc.invalidateQueries({ queryKey: qk.projects });
+      }
     },
   });
 }

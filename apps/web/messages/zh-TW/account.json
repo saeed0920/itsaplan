@@ -123,6 +123,12 @@
     "language": "語言",
     "languageDescription": "介面、電子郵件和 Telegram 機器人使用的語言。",
     "timezone": "時區",
+    "calendar": "Calendar system",
+    "calendarDescription": "Calendar for displaying and selecting dates, independent of interface language.",
+    "calendarOptions": {
+      "gregory": "Gregorian",
+      "persian": "Persian (Solar Hijri)"
+    },
     "timezoneDescription": "選擇你所在的時區。",
     "timezonePlaceholder": "選擇時區",
     "timezoneEmpty": "未找到時區。",

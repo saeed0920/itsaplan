@@ -1,4 +1,4 @@
-import { addMonths, startOfMonth } from 'date-fns';
+import { useCalendar } from '@/hooks/useCalendar';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,11 @@ export function CalendarMonthNav({
 }) {
   const t = useTranslations('workItems.calendar');
   const format = useFormatter();
+  const { calendar, dateLib } = useCalendar();
   return (
     <div className="mb-3 flex items-center gap-2">
       <h2 className="text-sm font-medium text-foreground">
-        {format.dateTime(cursor, { month: 'long', year: 'numeric', calendar: 'gregory' })}
+        {format.dateTime(cursor, { month: 'long', year: 'numeric', calendar })}
       </h2>
       <div className="flex items-center gap-1">
         <Tooltip>
@@ -25,10 +26,10 @@ export function CalendarMonthNav({
               variant="ghost"
               size="icon"
               className="size-7"
-              onClick={() => onCursorChange(addMonths(cursor, -1))}
+              onClick={() => onCursorChange(dateLib.addMonths(dateLib.startOfMonth(cursor), -1))}
               aria-label={t('previousMonth')}
             >
-              <ChevronLeft />
+              <ChevronLeft className="rtl:rotate-180" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>{t('previousMonth')}</TooltipContent>
@@ -39,16 +40,16 @@ export function CalendarMonthNav({
               variant="ghost"
               size="icon"
               className="size-7"
-              onClick={() => onCursorChange(addMonths(cursor, 1))}
+              onClick={() => onCursorChange(dateLib.addMonths(dateLib.startOfMonth(cursor), 1))}
               aria-label={t('nextMonth')}
             >
-              <ChevronRight />
+              <ChevronRight className="rtl:rotate-180" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>{t('nextMonth')}</TooltipContent>
         </Tooltip>
       </div>
-      <Button variant="outline" size="sm" onClick={() => onCursorChange(startOfMonth(new Date()))}>
+      <Button variant="outline" size="sm" onClick={() => onCursorChange(new Date())}>
         {t('today')}
       </Button>
     </div>

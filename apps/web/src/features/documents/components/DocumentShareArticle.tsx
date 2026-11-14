@@ -1,6 +1,7 @@
 import { type MouseEvent, useCallback, useMemo } from 'react';
 import type { Editor } from '@tiptap/core';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useCalendar } from '@/hooks/useCalendar';
 import type { SharedDocumentBundle } from '@/lib/api/endpoints/share';
 import { cn } from '@/lib/utils';
 import { rewriteSharedLinks, sharedPageOf } from '../utils/sharedLinks';
@@ -23,6 +24,8 @@ export default function DocumentShareArticle({
 }) {
   const t = useTranslations('documents');
   const format = useFormatter();
+  const { calendar } = useCalendar();
+
   const lockedTitle = t('lockedLink');
   const pageIds = useMemo(() => new Set(pages.map((page) => page.id)), [pages]);
   const rootId = pages[0].id;
@@ -66,7 +69,7 @@ export default function DocumentShareArticle({
         </h1>
         <p className="mt-3 text-xs text-muted-foreground/80">
           {t('updated', {
-            time: format.dateTime(new Date(document.updatedAt), { dateStyle: 'medium' }),
+            time: format.dateTime(new Date(document.updatedAt), { calendar, dateStyle: 'medium' }),
           })}
         </p>
       </header>
