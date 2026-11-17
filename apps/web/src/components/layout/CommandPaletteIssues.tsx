@@ -5,6 +5,7 @@ import type { IssueSearchHit } from '@/lib/api/endpoints/issues';
 import { ISSUE_PREFIX } from '@/utils/commandFilter';
 import { CommandGroup, CommandItem, CommandSeparator } from '@/components/ui/command';
 import ArchivedBadge from '@/components/common/ArchivedBadge';
+import IssueMetadata from '@/components/common/IssueMetadata';
 
 // A palette group of issue hits. The list comes from the server (already filtered
 // and ordered); the ISSUE_PREFIX value keeps cmdk from re-filtering it. A later
@@ -41,7 +42,16 @@ export default function CommandPaletteIssues<T extends IssueSearchHit>({
             onSelect={() => onOpenIssue(issue)}
           >
             <Hash />
-            <span className="flex-1 truncate">{issue.title}</span>
+            <span className="min-w-0 flex-1 space-y-1">
+              <span className="block truncate" dir="auto">
+                {issue.title}
+              </span>
+              <IssueMetadata
+                columnName={issue.columnName}
+                cycleName={issue.cycleName}
+                dueDate={issue.dueDate}
+              />
+            </span>
             {issue.archived && <ArchivedBadge />}
             <span className="shrink-0 font-mono text-xs text-muted-foreground">
               {issue.identifier}

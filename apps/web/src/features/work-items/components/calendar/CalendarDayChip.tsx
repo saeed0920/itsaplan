@@ -4,8 +4,7 @@ import type { Issue } from '@/lib/api/endpoints/issues';
 import { useIsPhone } from '@/hooks/useIsPhone';
 import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import IssueContextMenu from '@/features/issue/components/actions/IssueContextMenu';
+import { CalendarIssueTooltip } from './CalendarIssueTooltip';
 
 // A draggable chip inside a day cell. A click (no drag) opens the issue; a drag
 // moves it to another day or the unscheduled panel.
@@ -28,32 +27,29 @@ export function CalendarDayChip({
     disabled: useIsPhone() || !can('work_items', 'edit'),
   });
   return (
-    <Tooltip>
-      <IssueContextMenu project={project} issue={issue}>
-        <TooltipTrigger asChild>
-          <div
-            ref={setNodeRef}
-            {...attributes}
-            {...listeners}
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              onOpen(issue.id);
-            }}
-            className={cn(
-              'flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-accent',
-              isDragging && 'opacity-40',
-            )}
-          >
-            <span
-              className="inline-block size-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: color }}
-            />
-            <span className="truncate text-foreground">{issue.title}</span>
-          </div>
-        </TooltipTrigger>
-      </IssueContextMenu>
-      <TooltipContent>{`${issue.identifier} ${issue.title}`}</TooltipContent>
-    </Tooltip>
+    <CalendarIssueTooltip project={project} issue={issue} dragging={isDragging}>
+      <button
+        type="button"
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        tabIndex={0}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onOpen(issue.id);
+        }}
+        className={cn(
+          'flex w-full min-w-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-start text-xs transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
+          isDragging && 'opacity-40',
+        )}
+      >
+        <span
+          className="inline-block size-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        <span className="truncate text-foreground">{issue.title}</span>
+      </button>
+    </CalendarIssueTooltip>
   );
 }

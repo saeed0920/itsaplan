@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { SubtaskDisposition } from '@/lib/api/endpoints/issues';
+import { dispositionReady, removalCount } from '@/utils/subtasks';
+import { useIssueSubtreeQuery } from '@/services/issues.service';
 import { useIssueArchivesQuery } from '@/services/issueArchives.service';
 import IssueArchiveSelect from '@/components/common/fields/IssueArchiveSelect';
 import { Button } from '@/components/ui/button';
-import { dispositionReady } from '@/utils/subtasks';
 import ConfirmDialog from '@/components/common/overlay/ConfirmDialog';
 import SubtaskDisposalChoice from '@/features/issue/components/actions/SubtaskDisposalChoice';
 
@@ -31,15 +32,19 @@ export function BulkRemovalDialog({
   const [archiveId, setArchiveId] = useState<number | null>(null);
   const a = useTranslations('workItems.archives');
   const [disposition, setDisposition] = useState<SubtaskDisposition | null>(null);
+  const subtree = useIssueSubtreeQuery(projectKey, ids, subtaskCount > 0).data ?? [];
+  // An archive leaves the subtasks already archived as they are.
+  const taken = action === 'archive' ? subtree.filter((subtask) => !subtask.archived) : subtree;
 
   return (
     <ConfirmDialog
       title={t(`${action}.title`, { count: ids.length })}
-      confirmLabel={t(`${action}.confirm`, { count: ids.length })}
+      confirmLabel={t(`${action}.confirm`, { count: removalCount(ids, taken, disposition) })}
       confirmDisabled={
         (subtaskCount > 0 && !dispositionReady(disposition)) ||
         (action === 'archive' && (archives.isPending || archives.isError))
       }
+      wide={subtaskCount > 0 && 'xl'}
       onConfirm={async () => {
         await onConfirm(disposition ?? undefined, action === 'archive' ? archiveId : undefined);
         onClose();

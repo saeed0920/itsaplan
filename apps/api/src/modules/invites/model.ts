@@ -7,9 +7,15 @@ const teamRole = t.Union([t.Literal('owner'), t.Literal('manager'), t.Literal('m
 
 const inviteStatus = t.Union([t.Literal('pending'), t.Literal('accepted'), t.Literal('rejected')]);
 
-export const inviteParams = t.Object({ projectKey: t.String(), inviteId: t.Numeric() });
+export const inviteParams = t.Object({
+  projectKey: t.String(),
+  inviteId: t.Numeric(),
+});
 
-export const teamInviteParams = t.Object({ teamId: t.Numeric(), inviteId: t.Numeric() });
+export const teamInviteParams = t.Object({
+  teamId: t.Numeric(),
+  inviteId: t.Numeric(),
+});
 
 // The token is a UUID column. Validating its format here turns a malformed token
 // into a 400 instead of letting it reach Postgres and surface as a 500.
@@ -22,15 +28,15 @@ export const createInviteBody = t.Object({
 });
 
 export const createTeamInviteBody = t.Object({
-  email: t.String({ format: 'email' }),
+  email: t.Optional(t.String({ format: 'email' })),
   role: teamRole,
 });
 
 export const inviteCandidatesQuery = t.Object({
   search: t.String({
-    minLength: 2,
+    minLength: 0,
     maxLength: 200,
-    description: 'Part of the name or the address, at least 2 characters.',
+    description: 'Part of the name or address. Empty lists workspace candidates.',
   }),
 });
 
@@ -47,7 +53,7 @@ export const InviteCandidateListResponse = t.Array(
 export const InviteRowResponse = t.Object({
   id: t.Number(),
   token: t.Nullable(t.String()),
-  email: t.String(),
+  email: t.Nullable(t.String()),
   teamRole,
   projectKey: t.Nullable(t.String()),
   projectName: t.Nullable(t.String()),
@@ -66,7 +72,11 @@ export const InviteRowResponse = t.Object({
 // still works. Without a provider both are false.
 export const InviteCreateResponse = t.Composite([
   t.Omit(InviteRowResponse, ['token']),
-  t.Object({ token: t.String(), emailQueued: t.Boolean(), emailFailed: t.Boolean() }),
+  t.Object({
+    token: t.String(),
+    emailQueued: t.Boolean(),
+    emailFailed: t.Boolean(),
+  }),
 ]);
 
 export const InviteEmailResponse = t.Object({ emailQueued: t.Boolean() });
@@ -80,7 +90,7 @@ export const InviteViewResponse = t.Object({
   teamRef: t.String(),
   projectKey: t.Nullable(t.String()),
   projectName: t.Nullable(t.String()),
-  email: t.String(),
+  email: t.Nullable(t.String()),
   teamRole,
   role: t.Nullable(projectRole),
   roleId: t.Nullable(t.Number()),

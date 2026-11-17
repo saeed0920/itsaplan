@@ -59,6 +59,11 @@
     "month": "Mês",
     "quarter": "Trimestre"
   },
+  "calendarModes": {
+    "month": "Mês",
+    "byDay": "Por dia",
+    "byWeek": "Por semana"
+  },
   "weekStart": {
     "default": "Workspace default",
     "6": "Saturday",
@@ -87,6 +92,10 @@
     "subtasksCollapsed": "Começar recolhidas",
     "groupsCollapsed": "Grupos começam recolhidos",
     "placeBy": "Posicionar por",
+    "mode": "Modo",
+    "daysShown": "Dias na tela",
+    "weeksShown": "Semanas na tela",
+    "splitByDay": "Dividir por dia",
     "weekStartsOn": "Início da semana",
     "scale": "Escala",
     "dragToReorder": "Arraste para reordenar",
@@ -99,7 +108,8 @@
     "show": "Mostrar",
     "subtasks": "Subtarefas",
     "cardProperties": "Propriedades do card",
-    "columns": "Colunas"
+    "columns": "Colunas",
+    "dates": "Datas"
   },
   "layoutCommand": "Layout {layout}"
 }

@@ -12,7 +12,10 @@ async function ownTeamId(api: Api): Promise<number> {
 
 // The first account is the instance owner, so it may set the search in god mode.
 async function setupOwner(inviteSearch = true) {
-  const owner = await signUpTestUser({ name: 'Olivia Owner', email: 'olivia@owner.test' });
+  const owner = await signUpTestUser({
+    name: 'Olivia Owner',
+    email: 'olivia@owner.test',
+  });
   const api = authedApi(owner.cookie);
   await api.god['auth-settings'].put({ inviteSearch });
   return { api, teamId: await ownTeamId(api) };
@@ -46,27 +49,39 @@ describe('invite candidates — GET /teams/:teamId/invites/candidates', () => {
     setInviteEmailPolicy();
   });
 
-  it('is refused while the instance has the search off, which is the default', async () => {
+  it('keeps unrelated accounts private while instance search is off', async () => {
     const owner = await setupOwner(false);
     await signUpTestUser({ name: 'Nina New', email: 'nina@new.test' });
 
-    expect((await search(owner.api, owner.teamId, 'nina')).status).toBe(403);
-    expect((await owner.api.settings['invite-search'].get()).data).toEqual({ enabled: false });
+    expect((await search(owner.api, owner.teamId, 'nina')).data).toEqual([]);
+    expect((await owner.api.settings['invite-search'].get()).data).toEqual({
+      enabled: false,
+    });
 
     await owner.api.god['auth-settings'].put({ inviteSearch: true });
-    expect((await owner.api.settings['invite-search'].get()).data).toEqual({ enabled: true });
+    expect((await owner.api.settings['invite-search'].get()).data).toEqual({
+      enabled: true,
+    });
     expect(emails((await search(owner.api, owner.teamId, 'nina')).data)).toEqual(['nina@new.test']);
   });
 
   it('matches part of the name or the address, ignoring case', async () => {
     const owner = await setupOwner();
-    const ada = await signUpTestUser({ name: 'Ada Lovelace', email: 'ada@engine.test' });
+    const ada = await signUpTestUser({
+      name: 'Ada Lovelace',
+      email: 'ada@engine.test',
+    });
     await signUpTestUser({ name: 'Grace Hopper', email: 'grace@navy.test' });
 
     const byName = await search(owner.api, owner.teamId, 'LOVE');
     expect(byName.status).toBe(200);
     expect(byName.data).toEqual([
-      { userId: ada.userId, name: 'Ada Lovelace', email: 'ada@engine.test', image: null },
+      {
+        userId: ada.userId,
+        name: 'Ada Lovelace',
+        email: 'ada@engine.test',
+        image: null,
+      },
     ]);
 
     const byEmail = await search(owner.api, owner.teamId, 'navy.te');
@@ -75,9 +90,15 @@ describe('invite candidates — GET /teams/:teamId/invites/candidates', () => {
 
   it('leaves out the members of the team and the AI agents', async () => {
     const owner = await setupOwner();
-    await joinTeam(owner, 'member', { name: 'Sam Member', email: 'sam@crew.test' });
+    await joinTeam(owner, 'member', {
+      name: 'Sam Member',
+      email: 'sam@crew.test',
+    });
     await signUpTestUser({ name: 'Sam Outsider', email: 'sam@elsewhere.test' });
-    const other = await signUpTestUser({ name: 'Other Owner', email: 'other@owner.test' });
+    const other = await signUpTestUser({
+      name: 'Other Owner',
+      email: 'other@owner.test',
+    });
     const otherApi = authedApi(other.cookie);
     await createProject(otherApi, { key: 'OTH', name: 'Other' });
     const agent = await createAgent(otherApi, 'OTH', {
@@ -95,7 +116,10 @@ describe('invite candidates — GET /teams/:teamId/invites/candidates', () => {
   it('leaves out the people the invite policy refuses', async () => {
     const owner = await setupOwner();
     for (let i = 1; i <= 9; i++) {
-      await signUpTestUser({ name: `Crowd ${i}`, email: `crowd-${i}@outside.test` });
+      await signUpTestUser({
+        name: `Crowd ${i}`,
+        email: `crowd-${i}@outside.test`,
+      });
     }
     await signUpTestUser({ name: 'Crowd Inside', email: 'crowd@inside.test' });
     setInviteEmailPolicy(async (_teamId, email) => email.endsWith('@inside.test'));
@@ -107,7 +131,10 @@ describe('invite candidates — GET /teams/:teamId/invites/candidates', () => {
   it('answers with at most 8 people', async () => {
     const owner = await setupOwner();
     for (let i = 1; i <= 9; i++) {
-      await signUpTestUser({ name: `Crowd ${i}`, email: `crowd-${i}@many.test` });
+      await signUpTestUser({
+        name: `Crowd ${i}`,
+        email: `crowd-${i}@many.test`,
+      });
     }
 
     const res = await search(owner.api, owner.teamId, 'crowd');
@@ -115,20 +142,29 @@ describe('invite candidates — GET /teams/:teamId/invites/candidates', () => {
     expect(res.data).toHaveLength(8);
   });
 
-  it('needs at least 2 characters', async () => {
+  it('requires 2 characters before searching outside the workspace', async () => {
     const owner = await setupOwner();
     await signUpTestUser({ name: 'Al Short', email: 'al@short.test' });
 
-    expect((await search(owner.api, owner.teamId, 'a')).status).toBe(400);
-    expect((await search(owner.api, owner.teamId, '')).status).toBe(400);
+    expect((await search(owner.api, owner.teamId, 'a')).data).toEqual([]);
+    expect((await search(owner.api, owner.teamId, '')).data).toEqual([]);
     expect(emails((await search(owner.api, owner.teamId, 'al')).data)).toEqual(['al@short.test']);
   });
 
   it('matches % and _ literally', async () => {
     const owner = await setupOwner();
-    await signUpTestUser({ name: 'Rate 100% Sure', email: 'percent@chars.test' });
-    await signUpTestUser({ name: 'Rate 1000 Sure', email: 'digits@chars.test' });
-    await signUpTestUser({ name: 'snake_case', email: 'underscore@chars.test' });
+    await signUpTestUser({
+      name: 'Rate 100% Sure',
+      email: 'percent@chars.test',
+    });
+    await signUpTestUser({
+      name: 'Rate 1000 Sure',
+      email: 'digits@chars.test',
+    });
+    await signUpTestUser({
+      name: 'snake_case',
+      email: 'underscore@chars.test',
+    });
     await signUpTestUser({ name: 'snakeXcase', email: 'letter@chars.test' });
 
     expect(emails((await search(owner.api, owner.teamId, '100%')).data)).toEqual([
@@ -145,7 +181,10 @@ describe('invite candidates — GET /teams/:teamId/invites/candidates', () => {
       name: 'Mia Manager',
       email: 'mia@crew.test',
     });
-    const member = await joinTeam(owner, 'member', { name: 'Max Member', email: 'max@crew.test' });
+    const member = await joinTeam(owner, 'member', {
+      name: 'Max Member',
+      email: 'max@crew.test',
+    });
     await signUpTestUser({ name: 'Nina New', email: 'nina@new.test' });
 
     const byManager = await search(manager, owner.teamId, 'nina');

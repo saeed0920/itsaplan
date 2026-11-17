@@ -73,7 +73,9 @@ beforeEach(async () => {
   originals = new Map(
     replacedGlobals.map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
   );
-  dom = new JSDOM('<!doctype html><div id="root"></div>', { url: 'https://example.test/' });
+  dom = new JSDOM('<!doctype html><div id="root"></div>', {
+    url: 'https://example.test/',
+  });
   for (const name of replacedGlobals) {
     if (name in dom.window) {
       Object.defineProperty(globalThis, name, {
@@ -102,6 +104,11 @@ afterEach(async () => {
 });
 
 describe('TeamInviteRow', () => {
+  it('offers copying but no email action for a shared link', async () => {
+    await render({ ...invite(3), email: null });
+    assert.ok(button('Copy link'));
+    assert.equal(button('Send email'), undefined);
+  });
   it('marks an expired invite and renews it instead of copying its link', async () => {
     await render(invite(-1));
 

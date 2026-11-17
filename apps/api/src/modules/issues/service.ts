@@ -18,6 +18,10 @@ import {
   cycle,
   team,
   issueLink,
+  MAX_SUBTASK_DEPTH,
+  lockIssueTree,
+  parentLinkProblem,
+  type DbExecutor,
 } from '@repo/db';
 import { assertIssueArchive } from './archives';
 import { assigneeIdsSql, assigneeCondition, replaceAdditionalAssignees } from './assignees';
@@ -119,8 +123,7 @@ export interface IssueRow {
   assigneeUserIds: string[];
   delegateUserId: string | null;
   columnId: number;
-  // The issue this one is a subtask of, or null when it stands on its own. One
-  // level deep: an issue with a parent cannot itself have subtasks.
+  // The issue this one is a subtask of, or null when it stands on its own.
   parentId: number | null;
   title: string;
   description: string;
@@ -267,6 +270,8 @@ export async function listArchivedIssues(project: ProjectRow): Promise<IssueRow[
 // description (which may embed large data URIs) and no field values, so the payload
 // stays small.
 export interface IssueSearchHit {
+  columnName: string | null;
+  cycleName: string | null;
   id: number;
   sequenceNumber: number;
   identifier: string;
@@ -363,6 +368,10 @@ function hitOrder(numberMatch: SQL | undefined): SQL[] {
 }
 
 const hitColumns = {
+  columnName: sql<
+    string | null
+  >`(SELECT c.name FROM ${projectColumn} c WHERE c.id = ${issue}.column_id)`,
+  cycleName: sql<string | null>`(SELECT c.name FROM ${cycle} c WHERE c.id = ${issue}.cycle_id)`,
   id: issue.id,
   sequenceNumber: issue.sequenceNumber,
   typeId: issue.typeId,
@@ -1112,11 +1121,9 @@ async function assertIssueType(
   if (rows.length === 0) throw new HttpError(400, 'Issue type must belong to this project');
 }
 
-// Enforces the rules a parent link has to hold: both issues in the same project,
-// no issue its own parent, and one level of nesting — the parent may not be a
-// subtask itself, and an issue that already has subtasks may not become one.
-// issueId is null when the issue is being created (it has no subtasks yet).
-// Throws 400 otherwise; clearing the parent is always allowed.
+// Enforces that a parent link stays inside one project and that no issue is its own
+// parent. The tree rules are in assertTreeLink. Throws 400 otherwise; clearing the
+// parent is always allowed.
 async function assertParent(
   projectId: number,
   issueId: number | null,
@@ -1126,26 +1133,27 @@ async function assertParent(
   await assertProjectFeature(projectId, 'subtasks');
   if (parentId === issueId) throw new HttpError(400, 'An issue cannot be its own parent');
   const rows = await db
-    .select({ projectId: issue.projectId, parentId: issue.parentId })
+    .select({ projectId: issue.projectId })
     .from(issue)
     .where(eq(issue.id, parentId));
   if (rows.length === 0 || rows[0].projectId !== projectId)
     throw new HttpError(400, 'Parent must belong to this project');
-  if (rows[0].parentId !== null)
-    throw new HttpError(400, 'A subtask cannot be the parent of another issue');
-  if (issueId !== null && (await hasSubtasks(issueId)))
-    throw new HttpError(400, 'An issue with subtasks cannot become a subtask');
 }
 
-// Whether the issue has subtasks, archived ones included: they stay attached to it
-// and are restored as subtasks.
-async function hasSubtasks(issueId: number): Promise<boolean> {
-  const rows = await db
-    .select({ id: issue.id })
-    .from(issue)
-    .where(eq(issue.parentId, issueId))
-    .limit(1);
-  return rows.length > 0;
+// Rejects a link that puts the issue under one of its own subtasks, or the issue
+// with its subtasks past MAX_SUBTASK_DEPTH. issueId is null for an issue being
+// created. Throws 400.
+export async function assertTreeLink(
+  issueId: number | null,
+  parentId: number | null | undefined,
+  executor: DbExecutor = db,
+): Promise<void> {
+  if (parentId == null) return;
+  const problem = await parentLinkProblem(issueId, parentId, executor);
+  if (problem === 'cycle')
+    throw new HttpError(400, 'An issue cannot become a subtask of its own subtask');
+  if (problem === 'depth')
+    throw new HttpError(400, `Subtasks can be nested at most ${MAX_SUBTASK_DEPTH} levels deep`);
 }
 
 // Enforces that every label belongs to the issue's project — the issue_label
@@ -1192,6 +1200,10 @@ export async function createIssue(
       ? (input.assigneeUserIds[0] ?? null)
       : (input.assigneeUserId ?? (await columnAutoAssignee(input.columnId)));
   const { id: issueId, createdAt } = await db.transaction(async (tx) => {
+    if (input.parentId != null) {
+      await lockIssueTree(tx, project.id);
+      await assertTreeLink(null, input.parentId, tx);
+    }
     const [seqRow] = await tx
       .update(projectTable)
       .set({ nextSequence: sql`next_sequence + 1` })
@@ -1413,6 +1425,10 @@ export async function updateIssue(
       opts?.onlyIfColumnId == null ? undefined : eq(issue.columnId, opts.onlyIfColumnId),
     );
     const updated = await db.transaction(async (tx) => {
+      if (patch.parentId != null) {
+        await lockIssueTree(tx, before.projectId);
+        await assertTreeLink(id, patch.parentId, tx);
+      }
       const rows = await tx.update(issue).set(set).where(guard).returning({ id: issue.id });
       if (rows.length && (patch.assigneeUserIds !== undefined || patch.assigneeUserId === null))
         await replaceAdditionalAssignees(tx, id, before.projectId, patch.assigneeUserIds ?? []);

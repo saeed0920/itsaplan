@@ -4,6 +4,9 @@ import { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { JSDOM } from 'jsdom';
+import { NextIntlClientProvider } from 'next-intl';
+import teams from '../../../../../messages/en/teams.json';
+import members from '../../../../../messages/en/members.json';
 import type { InviteCandidate } from '@/lib/api/endpoints/invites';
 
 const replacedGlobals = [
@@ -48,18 +51,20 @@ async function render(address: string) {
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <TeamInviteSuggestions
-          teamId={7}
-          address={address}
-          onPick={(email) => picked.push(email)}
-        />
+        <NextIntlClientProvider locale="en" messages={{ teams }} timeZone="UTC">
+          <TeamInviteSuggestions
+            teamId={7}
+            address={address}
+            onPick={(email) => picked.push(email)}
+          />
+        </NextIntlClientProvider>
       </QueryClientProvider>,
     ),
   );
   await settle();
 }
 
-const items = () => [...document.querySelectorAll<HTMLElement>('[data-slot="command-item"]')];
+const items = () => [...document.querySelectorAll<HTMLElement>('button[data-user-id]')];
 
 beforeEach(async () => {
   originals = new Map(
@@ -80,7 +85,10 @@ beforeEach(async () => {
   searches = [];
   picked = [];
   Object.defineProperties(globalThis, {
-    getComputedStyle: { configurable: true, value: dom.window.getComputedStyle.bind(dom.window) },
+    getComputedStyle: {
+      configurable: true,
+      value: dom.window.getComputedStyle.bind(dom.window),
+    },
     requestAnimationFrame: {
       configurable: true,
       value: dom.window.requestAnimationFrame.bind(dom.window),
@@ -128,6 +136,40 @@ afterEach(async () => {
 });
 
 describe('TeamInviteSuggestions', () => {
+  it('creates a link without an email and reports clipboard failure', async () => {
+    const { default: TeamInviteLink } = await import('./TeamInviteLink');
+    let submitted: unknown;
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: async (_input: unknown, init: RequestInit) => {
+        submitted = JSON.parse(String(init.body));
+        return Response.json({
+          token: 'shared-token',
+          email: null,
+          emailQueued: false,
+          emailFailed: false,
+        });
+      },
+    });
+    await act(async () =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <NextIntlClientProvider locale="en" messages={{ teams, members }} timeZone="UTC">
+            <TeamInviteLink teamId={7} />
+          </NextIntlClientProvider>
+        </QueryClientProvider>,
+      ),
+    );
+    await act(async () => document.querySelector<HTMLButtonElement>('button')!.click());
+    await settle();
+    assert.deepEqual(submitted, { role: 'member' });
+    const link = document.querySelector<HTMLInputElement>('input')!;
+    assert.equal(link.value, 'https://example.test/invite/shared-token');
+    assert.equal(link.readOnly, true);
+    await act(async () => document.querySelector<HTMLButtonElement>('button')!.click());
+    assert.match(document.querySelector('[role="alert"]')!.textContent!, /copy it manually/);
+  });
+
   it('lists the matches and puts the picked address in the field', async () => {
     await render('lov');
 
@@ -139,11 +181,11 @@ describe('TeamInviteSuggestions', () => {
     assert.deepEqual(picked, ['ada@engine.test']);
   });
 
-  it('does not search under 2 characters', async () => {
-    await render('a');
+  it('offers workspace people before typing', async () => {
+    await render('');
 
-    assert.deepEqual(searches, []);
-    assert.equal(items().length, 0);
+    assert.deepEqual(searches, ['']);
+    assert.equal(items().length, 1);
   });
 
   it('hides the list once the field holds a listed address', async () => {

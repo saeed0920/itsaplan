@@ -64,6 +64,32 @@ describe('cross-project issue search', () => {
     });
   });
 
+  it("returns metadata from each hit's own project", async () => {
+    const { api } = await setup();
+    const mkt = await createIssue(api, 'MKT', 'Zephyr launch');
+    const ops = await createIssue(api, 'OPS', 'Zephyr rollout');
+    const project = (await api.projects({ projectKey: 'MKT' }).get()).data!;
+    const cycle = (
+      await api.projects({ projectKey: 'MKT' }).cycles.post({
+        name: 'Marketing sprint',
+        startDate: '2026-11-01',
+        endDate: '2026-11-30',
+      })
+    ).data!;
+    await api.issues({ issueId: mkt.id }).patch({ cycleId: cycle.id, dueDate: '2026-11-30' });
+    const res = await search(api, { q: 'zephyr' });
+    expect(res.status).toBe(200);
+    expect(res.data!.find((hit) => hit.id === mkt.id)).toMatchObject({
+      columnName: project.columns.find((column) => column.id === mkt.columnId)!.name,
+      cycleName: 'Marketing sprint',
+      dueDate: new Date('2026-11-30T00:00:00.000Z'),
+    });
+    expect(res.data!.find((hit) => hit.id === ops.id)).toMatchObject({
+      cycleName: null,
+      dueDate: null,
+    });
+  });
+
   it('returns the estimate in points with each hit', async () => {
     const { api } = await setup();
     const sized = await createIssue(api, 'MKT', 'Zephyr launch');

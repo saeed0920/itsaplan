@@ -59,6 +59,11 @@
     "month": "Месяц",
     "quarter": "Квартал"
   },
+  "calendarModes": {
+    "month": "Месяц",
+    "byDay": "По дням",
+    "byWeek": "По неделям"
+  },
   "weekStart": {
     "default": "Workspace default",
     "6": "Saturday",
@@ -87,6 +92,10 @@
     "subtasksCollapsed": "Начинать свёрнутыми",
     "groupsCollapsed": "Начинать со свёрнутыми группами",
     "placeBy": "Размещать по",
+    "mode": "Вид",
+    "daysShown": "Дней на экране",
+    "weeksShown": "Недель на экране",
+    "splitByDay": "Разбивать по дням",
     "weekStartsOn": "Начало недели",
     "scale": "Масштаб",
     "dragToReorder": "Перетащите, чтобы изменить порядок",
@@ -99,7 +108,8 @@
     "show": "Показывать",
     "subtasks": "Подзадачи",
     "cardProperties": "Свойства карточки",
-    "columns": "Столбцы"
+    "columns": "Столбцы",
+    "dates": "Даты"
   },
   "layoutCommand": "Раскладка «{layout}»"
 }

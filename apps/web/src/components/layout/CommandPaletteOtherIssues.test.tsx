@@ -7,6 +7,7 @@ import { JSDOM } from 'jsdom';
 import type { CrossProjectIssueHit, IssueSearchHit } from '@/lib/api/endpoints/issues';
 import palette from '../../../messages/en/palette.json';
 import common from '../../../messages/en/common.json';
+import issue from '../../../messages/en/issue.json';
 
 const replacedGlobals = [
   'window',
@@ -78,19 +79,19 @@ let root: Root;
 let originalGlobalDescriptors: Map<string, PropertyDescriptor | undefined>;
 let opened: string[];
 
-async function render(otherHits = others, fetching = false) {
+async function render(otherHits = others, fetching = false, currentHits = current) {
   const { Command, CommandList } = await import('@/components/ui/command');
   const { substringFilter } = await import('@/utils/commandFilter');
   const { default: CommandPaletteIssues } = await import('./CommandPaletteIssues');
   const { default: CommandPaletteOtherIssues } = await import('./CommandPaletteOtherIssues');
   await act(async () =>
     root.render(
-      <NextIntlClientProvider locale="en" messages={{ palette, common }} timeZone="UTC">
+      <NextIntlClientProvider locale="en" messages={{ palette, common, issue }} timeZone="UTC">
         <Command filter={substringFilter}>
           <CommandList>
             <CommandPaletteIssues
               heading="Issues"
-              hits={current}
+              hits={currentHits}
               fetching={false}
               onOpenIssue={(issue) => opened.push(issue.identifier)}
             />
@@ -172,6 +173,24 @@ describe('CommandPaletteOtherIssues', () => {
       ],
     );
     assert.equal(new Set(rows().map((row) => row.dataset.value)).size, 6);
+  });
+
+  it('shows status, cycle and due date without changing issue selection', async () => {
+    await render(others, false, [
+      {
+        ...current[0]!,
+        columnName: 'In progress',
+        cycleName: 'Sprint 12',
+        dueDate: '2026-11-30',
+      },
+    ]);
+    const row = rows()[0]!;
+    assert.ok(row.textContent!.includes('In progress'));
+    assert.ok(row.textContent!.includes('Sprint 12'));
+    assert.ok(row.textContent!.includes('Due date: Nov 30, 2026'));
+    assert.equal(row.querySelector('time')!.dateTime, '2026-11-30');
+    await act(async () => row.click());
+    assert.deepEqual(opened, ['MKT-1']);
   });
 
   it('shows one searching row until the first hits arrive', async () => {

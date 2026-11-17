@@ -90,7 +90,7 @@ export default function MemberAddDialog({
   // project already invited it, which cannot be done a second time.
   const pendingEmails = (invitesQuery.data ?? [])
     .filter((one) => one.status === 'pending')
-    .map((one) => one.email.toLowerCase());
+    .flatMap((one) => (one.email ? [one.email.toLowerCase()] : []));
   const typedIsNew =
     canInvite &&
     EMAIL_PATTERN.test(typed) &&
@@ -107,7 +107,10 @@ export default function MemberAddDialog({
         : { role: 'member' as const, roleId: Number(role) };
     try {
       if (target.kind === 'member') {
-        await addMember.mutateAsync({ userId: target.candidate.userId, ...input });
+        await addMember.mutateAsync({
+          userId: target.candidate.userId,
+          ...input,
+        });
       } else {
         await createInvite.mutateAsync({ email: target.email, ...input });
       }

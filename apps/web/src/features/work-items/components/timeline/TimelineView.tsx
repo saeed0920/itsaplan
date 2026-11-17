@@ -1,7 +1,13 @@
 import { useRef, useState } from 'react';
-import { DndContext } from '@dnd-kit/core';
-import { buildMaps, issueColor, type WorkItemsViewProps } from '@/utils/project';
 import { useCalendar } from '@/hooks/useCalendar';
+import { DndContext } from '@dnd-kit/core';
+import {
+  buildMaps,
+  groupDefaults,
+  issueColor,
+  type GroupAssign,
+  type WorkItemsViewProps,
+} from '@/utils/project';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useGroupLabels } from '@/hooks/useGroupLabels';
 import { useElementWidth } from '@/hooks/useElementWidth';
@@ -11,6 +17,8 @@ import { TimelineHeader } from '@/components/common/timeline/TimelineHeader';
 import { TimelineLabelResizer } from '@/components/common/timeline/TimelineLabelResizer';
 import { useTimelineDrag } from '../../hooks/useTimelineDrag';
 import { useIssueReorder } from '../../hooks/useIssueReorder';
+import { useQuickCreate } from '../../hooks/useQuickCreate';
+import { wipAllows, wipStateFor } from '../../utils/wipLimit';
 import {
   buildTimeline,
   labelWidthKey,
@@ -25,6 +33,7 @@ import { TimelineSubgroupRow } from './TimelineSubgroupRow';
 import { TimelineIssueBlock } from './TimelineIssueBlock';
 import { TimelineIssueRow } from './TimelineIssueRow';
 import { TimelineLinkRows } from './TimelineLinkRows';
+import { TimelineQuickAdd } from './TimelineQuickAdd';
 import { TimelineRows } from './TimelineRows';
 import { TimelineSubtaskRows } from './TimelineSubtaskRows';
 
@@ -42,13 +51,15 @@ export default function TimelineView({
   customFields,
   settings,
   onOpenIssue,
+  newIssueDefaults,
+  columnCounts,
   collapsedGroups,
   onToggleGroup,
   viewId,
   readOnly,
 }: TimelineViewProps) {
-  const { calendar } = useCalendar();
   const { can } = usePermissions(project);
+  const { calendar } = useCalendar();
   const groupLabels = useGroupLabels();
   const barsReadOnly = readOnly || !can('work_items', 'edit');
   const [localCollapsedGroups, setLocalCollapsedGroups] = useState<Set<string>>(new Set());
@@ -74,6 +85,10 @@ export default function TimelineView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const { preview, beginDrag } = useTimelineDrag({ project, dayW: DAY_W, onOpenIssue });
   const reorder = useIssueReorder({ project, sort: settings.sort, readOnly: barsReadOnly });
+  const quickCreate = useQuickCreate(project);
+  const canCreate = !readOnly && can('work_items', 'create');
+  const canAddTo = (assign: GroupAssign | null) =>
+    canCreate && wipAllows(wipStateFor(assign, project.columns, columnCounts), 1);
   // Width of the scroll area, so the track can extend with trailing days until it
   // fills the viewport instead of leaving empty space on the right.
   const viewportW = useElementWidth(scrollRef);
@@ -89,6 +104,7 @@ export default function TimelineView({
   const { rows, days, months, trackWidth, todayLeft, todayInRange, dayLines, spanToRect } =
     buildTimeline({
       project,
+      calendar,
       filters,
       group: settings.group,
       subgroup: settings.subgroup,
@@ -96,10 +112,10 @@ export default function TimelineView({
       groupLabels,
       showEmptyGroups: settings.showEmptyGroups,
       collapsedGroups: activeCollapsedGroups,
+      canAddTo,
       viewportW,
       labelW,
       dayW: DAY_W,
-      calendar,
     });
 
   function renderRow(row: TimelineRow) {
@@ -135,6 +151,22 @@ export default function TimelineView({
           trackWidth={trackWidth}
           onDrop={(id) => reorder.moveIssue(id, row.assign, row.bucket, row.bucket.length)}
           onToggle={() => toggleGroup(row.groupKey)}
+        />
+      );
+    }
+
+    if (row.kind === 'add') {
+      return (
+        <TimelineQuickAdd
+          indented={subgrouped}
+          labelW={labelW}
+          trackWidth={trackWidth}
+          dayLines={dayLines}
+          todayInRange={todayInRange}
+          todayLeft={todayLeft}
+          onAdd={async (title) => {
+            await quickCreate({ ...newIssueDefaults, ...groupDefaults(row.assign), title });
+          }}
         />
       );
     }

@@ -6,16 +6,18 @@ import { authContext } from '#shared/auth-context';
 import { guards } from '#shared/guards';
 import {
   assertGrantablePermissions,
+  getTeamAccess,
   checkMemberAdmin,
   mayGrantPermissions,
   requireUser,
   type AuthUser,
 } from '#shared/access';
 import { inviteValidSince } from '@repo/auth';
+import { runsTeam } from '#modules/teams/service';
 import { hasConfiguredEmailProvider } from '@repo/db';
 import { HttpError } from '#shared/lib';
 import { accessErrors, commonErrors, errors } from '#shared/responses';
-import { getAssignableRole } from '#modules/roles/service';
+import { getMemberRole } from '#modules/roles/service';
 import type { ProjectRow } from '#modules/projects/service';
 import { teamParams } from '#modules/teams/model';
 import {
@@ -53,17 +55,36 @@ import {
   rejectInvite,
 } from './service';
 import { enqueueInviteEmail, sendTeamInviteEmail } from './email';
+import { isInviteEmailAllowed } from './email-policy';
 
-// Shared by accept and reject: an invite is actionable only by the account whose
-// email it names, and only while it is still pending.
+// Shared links require a session; addressed invitations also require a matching email.
 async function loadActionableInvite(token: string, user: AuthUser | undefined | null) {
   const current = requireUser(user);
   const invite = await getInviteRowByToken(token);
   if (!invite) throw new HttpError(404, 'Invite not found');
   if (invite.status !== 'pending') throw new HttpError(409, 'This invite is no longer pending');
   const since = await inviteValidSince();
-  if (since && invite.createdAt < since) throw new HttpError(409, 'This invite has expired');
-  if ((current.email ?? '').toLowerCase() !== invite.email) {
+  const sharedExpired =
+    invite.email == null && invite.createdAt.getTime() <= Date.now() - 7 * 86400000;
+  if ((since && invite.createdAt < since) || sharedExpired) {
+    throw new HttpError(409, 'This invite has expired');
+  }
+  if (invite.email == null) {
+    if (!(await isInviteEmailAllowed(invite.teamId, current.email ?? '', true))) {
+      throw new HttpError(
+        400,
+        'Addresses at this domain cannot be invited here',
+        'EMAIL_DOMAIN_NOT_ALLOWED',
+      );
+    }
+    if (
+      !invite.invitedByUserId ||
+      !runsTeam((await getTeamAccess(invite.teamId, invite.invitedByUserId))?.role ?? null)
+    ) {
+      throw new HttpError(409, 'Whoever created this link can no longer invite members');
+    }
+  }
+  if (invite.email != null && (current.email ?? '').toLowerCase() !== invite.email) {
     throw new HttpError(403, 'This invite was sent to a different email');
   }
   return { invite, current };
@@ -108,12 +129,12 @@ async function hideLinksBeyondGrant(
   viewer: AuthUser,
   invites: ListedInvite[],
 ): Promise<ListedInvite[]> {
-  const grantable = new Map<number, boolean>();
+  const grantable = new Map<number | null, boolean>();
   return Promise.all(
     invites.map(async (invite) => {
-      if (!invite.token || invite.roleId == null) return invite;
+      if (!invite.token || invite.role !== 'member') return invite;
       if (!grantable.has(invite.roleId)) {
-        const role = await getAssignableRole(project.teamId, invite.roleId);
+        const role = await getMemberRole(project.teamId, invite.roleId);
         grantable.set(
           invite.roleId,
           !role || (await mayGrantPermissions(project, viewer, role.permissions)),
@@ -124,7 +145,10 @@ async function hideLinksBeyondGrant(
   );
 }
 
-export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invites'] } })
+export const inviteRoutes = new Elysia({
+  name: 'invites',
+  detail: { tags: ['Invites'] },
+})
   .use(authContext)
   .use(guards)
 
@@ -180,8 +204,8 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
       // team or a system role; null (or omitted) falls back to the default role on accept. An
       // owner invite ignores roleId (owners bypass roles).
       const roleId = body.role === 'member' ? (body.roleId ?? null) : null;
-      if (roleId != null) {
-        const role = await getAssignableRole(project.teamId, roleId);
+      if (body.role === 'member') {
+        const role = await getMemberRole(project.teamId, roleId);
         if (!role) throw new HttpError(400, "roleId does not belong to this project's team");
         await assertGrantablePermissions(project, user, role.permissions);
       }
@@ -261,8 +285,8 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
           'Only a project owner or a team owner or manager can invite an owner',
         );
       }
-      if (grant.roleId != null) {
-        const role = await getAssignableRole(project.teamId, grant.roleId);
+      if (grant.projectRole === 'member') {
+        const role = await getMemberRole(project.teamId, grant.roleId);
         if (role) await assertGrantablePermissions(project, user, role.permissions);
       }
       const invite = await renewInvite(grant, renewedBy);
@@ -332,7 +356,12 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
     async ({ membership, body, set }) => {
       if (
         !(await mayGrantInviteRanks(
-          { teamId: membership.teamId, projectId: null, teamRole: body.role, projectRole: null },
+          {
+            teamId: membership.teamId,
+            projectId: null,
+            teamRole: body.role,
+            projectRole: null,
+          },
           membership.userId,
         ))
       ) {
@@ -341,14 +370,17 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
       const invite = await createInvite({
         teamId: membership.teamId,
         projectId: null,
-        email: body.email,
+        email: body.email ?? null,
         teamRole: body.role,
         projectRole: null,
         roleId: null,
         invitedByUserId: membership.userId,
       });
       // As for a project invite: the link is the primary result and stays valid.
-      const email = await mailOutcome(() => sendTeamInviteEmail(membership.teamId, invite));
+      const email =
+        invite.email == null
+          ? { emailQueued: false, emailFailed: false }
+          : await mailOutcome(() => sendTeamInviteEmail(membership.teamId, invite));
       set.status = 201;
       return { ...invite, ...email };
     },
@@ -356,11 +388,15 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
       teamManager: true,
       params: teamParams,
       body: createTeamInviteBody,
-      response: { 201: InviteCreateResponse, ...errors(400, 401, 403, 404, 409) },
+      response: {
+        201: InviteCreateResponse,
+        ...errors(400, 401, 403, 404, 409),
+      },
       detail: {
         summary: 'Invite someone to a team',
         description:
-          'Create an invite link into the team, as a member, a manager or an owner. Only an ' +
+          'Omit email for a reusable member-only link, valid for at most seven days. Any signed-in account holding it may join. ' +
+          'With email, create an addressed invite as a member, manager or owner. Only an ' +
           'owner can invite a manager or another owner. Emails the link when the instance ' +
           'email provider is configured; emailFailed reports an email the provider could not ' +
           'send, the link still valid.',
@@ -397,9 +433,8 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
       detail: {
         summary: 'Search people to invite to a team',
         description:
-          'Up to 8 accounts of the instance whose name or address contains the search, ' +
-          'leaving out the members of the team and the AI agents. Whoever may invite to the ' +
-          'team may search, while the instance owner has the search turned on.',
+          'Up to 8 workspace people outside this team, excluding AI agents. Empty search is allowed. ' +
+          'With instance invite search enabled, searches of at least two characters also match other accounts.',
       },
     },
   )
@@ -421,6 +456,7 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
       if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
         throw new HttpError(409, 'This invite has expired. Renew it to send a new link.');
       }
+      if (invite.email == null) return { emailQueued: false };
       // Without a provider there is nothing to send, and the caller is told to share the
       // link; a provider that fails is an error, not that.
       if (!(await hasConfiguredEmailProvider())) return { emailQueued: false };
@@ -441,7 +477,10 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
     {
       teamManager: true,
       params: teamInviteParams,
-      response: { 200: InviteEmailResponse, ...errors(401, 403, 404, 409, 502) },
+      response: {
+        200: InviteEmailResponse,
+        ...errors(401, 403, 404, 409, 502),
+      },
       detail: {
         summary: 'Send an invite email of the team',
         description:
@@ -468,18 +507,24 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
       const invite = await renewInvite(grant, membership.userId);
       const { projectId } = grant;
       const projectName = invite.projectName;
-      const email = await mailOutcome(async () => {
-        if (projectId == null) return sendTeamInviteEmail(membership.teamId, invite);
-        if (projectName == null) return false;
-        return enqueueInviteEmail({ id: projectId, name: projectName }, invite);
-      });
+      const email =
+        invite.email == null
+          ? { emailQueued: false, emailFailed: false }
+          : await mailOutcome(async () => {
+              if (projectId == null) return sendTeamInviteEmail(membership.teamId, invite);
+              if (projectName == null) return false;
+              return enqueueInviteEmail({ id: projectId, name: projectName }, invite);
+            });
       set.status = 201;
       return { ...invite, ...email };
     },
     {
       teamManager: true,
       params: teamInviteParams,
-      response: { 201: InviteCreateResponse, ...errors(400, 401, 403, 404, 409) },
+      response: {
+        201: InviteCreateResponse,
+        ...errors(400, 401, 403, 404, 409),
+      },
       detail: {
         summary: 'Renew an expired invite of the team',
         description:
@@ -508,11 +553,11 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
     },
   )
 
-  // Unguarded by membership: the invitee is not a member yet. The token is
-  // unguessable, so any authenticated caller holding one may read the invite.
+  // Public preview: the unguessable token identifies the invitation.
   .get(
     '/invites/:token',
-    async ({ params }) => {
+    async ({ params, set }) => {
+      set.headers['cache-control'] = 'no-store';
       const invite = await getInviteByToken(params.token);
       if (!invite) throw new HttpError(404, 'Invite not found');
       return invite;
@@ -541,7 +586,7 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
       detail: {
         summary: 'Accept an invite',
         description:
-          'Accept an invite (email must match your session). An invite into a project you are ' +
+          'Accept an invite. Addressed invites require a matching session email; shared team links require sign-in. An invite into a project you are ' +
           'already a member of is refused: accepting it would rewrite the membership you hold.',
         ...mcpTool('accept_invite'),
       },
@@ -552,6 +597,8 @@ export const inviteRoutes = new Elysia({ name: 'invites', detail: { tags: ['Invi
     '/invites/:token/reject',
     async ({ params, user }) => {
       const { invite } = await loadActionableInvite(params.token, user);
+      if (invite.email == null)
+        throw new HttpError(400, 'Shared links cannot be declined for everyone');
       await rejectInvite(invite.id);
       return noContent();
     },

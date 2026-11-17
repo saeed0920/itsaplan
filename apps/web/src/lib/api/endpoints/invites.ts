@@ -14,7 +14,7 @@ export type InviteTeamRole = 'owner' | 'manager' | 'member';
 export interface InviteRow {
   id: number;
   token: string | null;
-  email: string;
+  email: string | null;
   teamRole: InviteTeamRole;
   // The project the invitee joins along with the team, or null for an invite into
   // the team alone.
@@ -55,7 +55,7 @@ export interface InviteView {
   teamRef: string;
   projectKey: string | null;
   projectName: string | null;
-  email: string;
+  email: string | null;
   teamRole: InviteTeamRole;
   role: MemberRole | null;
   roleId: number | null;
@@ -104,7 +104,9 @@ export const renewInvite = (projectKey: string, inviteId: number) =>
   });
 
 export const deleteInvite = (projectKey: string, inviteId: number) =>
-  request<void>(`/projects/${projectKey}/invites/${inviteId}`, { method: 'DELETE' });
+  request<void>(`/projects/${projectKey}/invites/${inviteId}`, {
+    method: 'DELETE',
+  });
 
 export const listTeamInvites = (teamId: number) => request<InviteRow[]>(`/teams/${teamId}/invites`);
 
@@ -122,17 +124,21 @@ export const listInviteCandidates = (teamId: number, search: string) =>
     `/teams/${teamId}/invites/candidates?${new URLSearchParams({ search })}`,
   );
 
-export const createTeamInvite = (teamId: number, input: { email: string; role: InviteTeamRole }) =>
+export const createTeamInvite = (teamId: number, input: { email?: string; role: InviteTeamRole }) =>
   request<InviteCreateResult>(`/teams/${teamId}/invites`, {
     method: 'POST',
     body: JSON.stringify(input),
   });
 
 export const sendTeamInviteEmail = (teamId: number, inviteId: number) =>
-  request<InviteEmailResult>(`/teams/${teamId}/invites/${inviteId}/email`, { method: 'POST' });
+  request<InviteEmailResult>(`/teams/${teamId}/invites/${inviteId}/email`, {
+    method: 'POST',
+  });
 
 export const renewTeamInvite = (teamId: number, inviteId: number) =>
-  request<InviteCreateResult>(`/teams/${teamId}/invites/${inviteId}/renew`, { method: 'POST' });
+  request<InviteCreateResult>(`/teams/${teamId}/invites/${inviteId}/renew`, {
+    method: 'POST',
+  });
 
 export const deleteTeamInvite = (teamId: number, inviteId: number) =>
   request<void>(`/teams/${teamId}/invites/${inviteId}`, { method: 'DELETE' });
@@ -143,10 +149,14 @@ export const getInvite = (token: string) =>
   request<InviteView>(`/invites/${encodeURIComponent(token)}`);
 
 export const acceptInvite = (token: string) =>
-  request<AcceptedInvite>(`/invites/${encodeURIComponent(token)}/accept`, { method: 'POST' });
+  request<AcceptedInvite>(`/invites/${encodeURIComponent(token)}/accept`, {
+    method: 'POST',
+  });
 
 export const rejectInvite = (token: string) =>
-  request<void>(`/invites/${encodeURIComponent(token)}/reject`, { method: 'POST' });
+  request<void>(`/invites/${encodeURIComponent(token)}/reject`, {
+    method: 'POST',
+  });
 
 export interface ReceivedInvite {
   token: string;

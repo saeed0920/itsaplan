@@ -1,4 +1,4 @@
-import { DateLib } from 'react-day-picker';
+import { DateLib } from '@daypicker/react';
 import { getDateLib, enUS } from '@daypicker/persian';
 import type { CalendarSystem } from '@/lib/api/endpoints/userPreferences';
 

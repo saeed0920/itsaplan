@@ -49,10 +49,16 @@ api:
     # TRUSTED_PROXIES: ""
     # Public origin for incoming Git webhooks when API_URL is private; unset uses API_URL.
     # GIT_WEBHOOK_BASE_URL: ""
+    # Web Push, read by the api and the worker. Push is off until both are set and
+    # secrets.webPushVapidPrivateKey too; `bun run web-push:keys` prints a key pair.
+    # WEB_PUSH_VAPID_PUBLIC_KEY: ""
+    # WEB_PUSH_SUBJECT: "mailto:admin@example.com"
     S3_BUCKET: ""
     S3_REGION: "us-east-1"
     S3_FORCE_PATH_STYLE: "true"
     TELEMETRY_DISABLED: "1"
+    # Shared by API, worker and bot; only Telegram requests use this proxy.
+    TELEGRAM_PROXY_URL: ""
   resources: {}
     # requests:
     #   cpu: 100m
@@ -175,6 +181,8 @@ secrets:
   appEncryptionKey: ""
   s3AccessKeyId: ""
   s3SecretAccessKey: ""
+  # The VAPID private key of Web Push. Empty keeps push off.
+  webPushVapidPrivateKey: ""
 
 # -- External database (when postgresql.enabled is false)
 externalDatabase:

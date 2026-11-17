@@ -20,8 +20,10 @@ import InviteNotice from './InviteNotice';
 export default function InviteActions({
   token,
   projectKey,
+  shared = false,
 }: {
   token: string;
+  shared?: boolean;
   projectKey: string | null;
 }) {
   const t = useTranslations('invite');
@@ -86,9 +88,11 @@ export default function InviteActions({
       <Button onClick={accept} disabled={busy !== null}>
         {busy === 'accept' ? t('accepting') : t('accept')}
       </Button>
-      <Button variant="outline" onClick={reject} disabled={busy !== null}>
-        {busy === 'reject' ? t('declining') : t('decline')}
-      </Button>
+      {!shared && (
+        <Button variant="outline" onClick={reject} disabled={busy !== null}>
+          {busy === 'reject' ? t('declining') : t('decline')}
+        </Button>
+      )}
     </div>
   );
 }

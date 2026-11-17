@@ -1,5 +1,16 @@
 # Plan UI extensions
 
+## Search and calendar issue details
+
+Search results show status, cycle and due date below the title, omitting unset values.
+Calendar month, week, day and unscheduled cards show identifier, full title and the same
+metadata in the existing tooltip on hover or keyboard focus. Keep click-to-open, context
+menus and drag scheduling. Hide previews while dragging. Reuse current fonts, semantic
+colors, spacing, calendar-aware dates and responsive breakpoints. User text uses automatic
+direction; identifiers stay LTR. No extra per-result requests or new dependencies.
+Verify populated/empty metadata, long titles, keyboard selection, focus/Escape, dragging,
+mobile width and Persian RTL. Touch users open the existing issue detail.
+
 ## Named issue archives
 
 Add a fixed Archive tab beside All and saved views, visible on mobile too. Reuse existing tab styling, cards, modal inputs, select controls and ListPager. Project members with work-item edit permission create/rename collections and manually archive or restore any status. Search and collection filters reset paging; existing and automatic archives use Unfiled. Archived cards open issue details and expose Restore and Move actions without draggable board behavior. Preserve subtasks confirmation, loading/error/empty states, translated labels, keyboard access and logical RTL spacing. Keep current fonts, semantic colors, spacing and breakpoints. Verify create/rename, single/bulk moves, cross-project refusal, restore, archived count, mobile and Persian RTL. No automatic monthly rules or deletion of collections in this scope.

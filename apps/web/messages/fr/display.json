@@ -59,6 +59,11 @@
     "month": "Mois",
     "quarter": "Trimestre"
   },
+  "calendarModes": {
+    "month": "Mois",
+    "byDay": "Par jour",
+    "byWeek": "Par semaine"
+  },
   "weekStart": {
     "default": "Workspace default",
     "6": "Saturday",
@@ -87,6 +92,10 @@
     "subtasksCollapsed": "Réduites au départ",
     "groupsCollapsed": "Groupes réduits au départ",
     "placeBy": "Positionner selon",
+    "mode": "Mode",
+    "daysShown": "Jours affichés",
+    "weeksShown": "Semaines affichées",
+    "splitByDay": "Diviser par jour",
     "weekStartsOn": "La semaine commence le",
     "scale": "Échelle",
     "dragToReorder": "Glisser pour réordonner",
@@ -99,7 +108,8 @@
     "show": "Afficher",
     "subtasks": "Sous-tâches",
     "cardProperties": "Propriétés de la carte",
-    "columns": "Colonnes"
+    "columns": "Colonnes",
+    "dates": "Dates"
   },
   "layoutCommand": "Affichage {layout}"
 }

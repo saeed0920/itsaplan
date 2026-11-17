@@ -49,8 +49,16 @@ export default function WorkItemsPage({ archive = false }: { archive?: boolean }
   const t = useTranslations('workItems');
   const tViews = useTranslations('views');
   const tCommon = useTranslations('common');
-  const { project, filteredProject, views, editor, customFields, onOpenIssue, onAddIssue } =
-    useShell();
+  const {
+    project,
+    filteredProject,
+    views,
+    editor,
+    customFields,
+    onOpenIssue,
+    onAddIssue,
+    newIssueDefaults,
+  } = useShell();
   const { can, isMember } = usePermissions();
   const groupLabels = useGroupLabels();
   const features = useProjectFeatures();
@@ -148,6 +156,7 @@ export default function WorkItemsPage({ archive = false }: { archive?: boolean }
     onSettingsChange: changeSettings,
     onOpenIssue,
     onAddIssue,
+    newIssueDefaults,
   };
 
   function renderView() {

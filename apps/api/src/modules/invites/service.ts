@@ -3,6 +3,7 @@ import {
   aiAgent,
   teamInvite,
   teamMember,
+  workspaceManager,
   projectMember,
   teamRole,
   team,
@@ -32,11 +33,7 @@ import { getDefaultRoleId } from '#modules/roles/service';
 import { assertSeatFree, getTeamMembership, runsTeam, type TeamRole } from '#modules/teams/service';
 import { isInviteEmailAllowed } from './email-policy';
 
-// Data access for invites. An invite is a token-addressed grant of membership in a
-// team, and — when it names a project — in that project too. Creating one requires
-// standing in the team or the project (see the routes); accepting it (email must
-// match the session) creates the team_member row and, for a project invite, the
-// project_member row.
+// A null email is a reusable, member-only team link. Addressed invites are single-use.
 
 export type InviteStatus = 'pending' | 'accepted' | 'rejected';
 
@@ -56,7 +53,7 @@ const OUTRANKED: Record<TeamRole, TeamRole[]> = {
 export interface InviteRow {
   id: number;
   token: string;
-  email: string;
+  email: string | null;
   teamRole: InviteTeamRole;
   // The project the invitee joins along with the team, or null for an invite into
   // the team alone.
@@ -91,7 +88,7 @@ export interface InviteView {
   teamRef: string;
   projectKey: string | null;
   projectName: string | null;
-  email: string;
+  email: string | null;
   teamRole: InviteTeamRole;
   role: MemberRole | null;
   roleId: number | null;
@@ -118,7 +115,7 @@ export interface AcceptedInvite {
 export interface NewInvite {
   teamId: number;
   projectId: number | null;
-  email: string;
+  email: string | null;
   teamRole: InviteTeamRole;
   // The role in the project, for an invite that names one.
   projectRole: MemberRole | null;
@@ -165,6 +162,11 @@ function expiresAt(createdAt: Date, status: string, ttlDays: number): string | n
   return iso(new Date(createdAt.getTime() + ttlDays * DAY_MS));
 }
 
+function effectiveTtl(email: string | null, days: number): number {
+  if (email != null) return days;
+  return days > 0 ? Math.min(days, 7) : 7;
+}
+
 const inviteTtlDays = async () => (await getAuthSettings()).inviteTtlDays;
 
 function toRow(r: InviteSelection, ttlDays: number): InviteRow {
@@ -180,7 +182,7 @@ function toRow(r: InviteSelection, ttlDays: number): InviteRow {
     roleName: r.roleName,
     status: r.status as InviteStatus,
     createdAt: iso(r.createdAt),
-    expiresAt: expiresAt(r.createdAt, r.status, ttlDays),
+    expiresAt: expiresAt(r.createdAt, r.status, effectiveTtl(r.email, ttlDays)),
     respondedAt: r.respondedAt ? iso(r.respondedAt) : null,
     invitedByName: r.invitedByName,
     invitedByEmail: r.invitedByEmail,
@@ -262,8 +264,14 @@ export async function mayGrantInviteRanks(
 }
 
 export async function createInvite(input: NewInvite): Promise<InviteRow> {
-  const email = normalizeEmail(input.email);
-  await assertInvitable(input, email);
+  const email = input.email == null ? null : normalizeEmail(input.email);
+  if (email == null) {
+    if (input.projectId != null || input.teamRole !== 'member' || input.roleId != null) {
+      throw new HttpError(400, 'Shared links can only grant team membership');
+    }
+  } else {
+    await assertInvitable(input, email);
+  }
   // Project owners bypass roles, so an owner invite never carries a role_id.
   const roleId = input.projectRole === 'member' ? input.roleId : null;
   // An expired invite still holds the one pending slot per address; it gives way to the
@@ -272,7 +280,7 @@ export async function createInvite(input: NewInvite): Promise<InviteRow> {
   let row;
   try {
     [row] = await db.transaction(async (tx) => {
-      if (since) {
+      if (since && email != null) {
         await tx
           .delete(teamInvite)
           .where(
@@ -356,18 +364,32 @@ const INVITE_CANDIDATE_LIMIT = 8;
 // first matches it mostly refuses suggests fewer.
 const INVITE_CANDIDATE_SCAN = 40;
 
-// The whole instance is searched: an invitee is not in the team yet. Only people the team
-// would take an invite for are suggested.
+// Workspace people remain discoverable without enabling instance-wide account search.
 export async function listInviteCandidates(teamId: number, search: string) {
-  if (!(await getAuthSettings()).inviteSearch) {
-    throw new HttpError(403, 'Searching people is turned off on this instance');
-  }
+  const [target] = await db
+    .select({ workspaceId: team.workspaceId })
+    .from(team)
+    .where(eq(team.id, teamId));
+  if (!target) throw new HttpError(404, 'Team not found');
+  const instanceSearch = search.length >= 2 && (await getAuthSettings()).inviteSearch;
+  const workspacePeople = or(
+    sql`exists (select 1 from ${teamMember} join ${team} on ${team.id} = ${teamMember.teamId}
+      where ${teamMember.userId} = ${user.id} and ${team.workspaceId} = ${target.workspaceId})`,
+    sql`exists (select 1 from ${workspaceManager} where ${workspaceManager.userId} = ${user.id}
+      and ${workspaceManager.workspaceId} = ${target.workspaceId})`,
+  );
   const pattern = likePattern(search);
   const matches = await db
-    .select({ userId: user.id, name: user.name, email: user.email, image: user.image })
+    .select({
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+    })
     .from(user)
     .where(
       and(
+        instanceSearch ? undefined : workspacePeople,
         or(ilike(user.name, pattern), ilike(user.email, pattern)),
         notExists(
           db
@@ -437,8 +459,8 @@ export async function getInviteByToken(token: string): Promise<InviteView | null
     .where(eq(teamInvite.token, token));
   const r = rows[0];
   if (!r) return null;
-  const account = await findAccount(r.email);
-  const until = expiresAt(r.createdAt, r.status, await inviteTtlDays());
+  const account = r.email == null ? null : await findAccount(r.email);
+  const until = expiresAt(r.createdAt, r.status, effectiveTtl(r.email, await inviteTtlDays()));
   return {
     token: r.token,
     teamName: r.teamName,
@@ -462,6 +484,7 @@ export async function getInviteByToken(token: string): Promise<InviteView | null
 export async function getInviteGrant(id: number) {
   const [row] = await db
     .select({
+      id: teamInvite.id,
       teamId: teamInvite.teamId,
       projectId: teamInvite.projectId,
       email: teamInvite.email,
@@ -483,11 +506,12 @@ export async function renewInvite(
   invitedByUserId: string,
 ): Promise<InviteRow> {
   if (grant.status !== 'pending') throw new HttpError(409, 'This invite is no longer pending');
-  const since = await inviteValidSince();
+  const days = effectiveTtl(grant.email, await inviteTtlDays());
+  const since = days > 0 ? new Date(Date.now() - days * DAY_MS) : null;
   if (!since || grant.createdAt >= since) {
     throw new HttpError(409, 'This invite has not expired');
   }
-  return createInvite({
+  const renewed = await createInvite({
     teamId: grant.teamId,
     projectId: grant.projectId,
     email: grant.email,
@@ -496,6 +520,8 @@ export async function renewInvite(
     roleId: grant.roleId,
     invitedByUserId,
   });
+  if (grant.email == null) await deleteTeamInvite(grant.teamId, grant.id);
+  return renewed;
 }
 
 // The raw invite fields needed to act on it (accept/reject/match email).
@@ -518,9 +544,7 @@ export async function getInviteRowByToken(token: string) {
   return rows[0] ?? null;
 }
 
-// Accepts a pending invite: joins the team, joins the project the invite names, and
-// marks the invite accepted, in one transaction. The caller has already checked the
-// invite is pending and the session email matches.
+// Shared links stay pending for other recipients. Addressed invites are consumed.
 export async function acceptInvite(
   invite: {
     id: number;
@@ -544,6 +568,20 @@ export async function acceptInvite(
   await assertSeatFree(invite.teamId, userId);
 
   return db.transaction(async (tx) => {
+    const [live] = await tx
+      .select()
+      .from(teamInvite)
+      .where(eq(teamInvite.id, invite.id))
+      .for('update');
+    if (!live) throw new HttpError(404, 'Invite not found');
+    const until = expiresAt(
+      live.createdAt,
+      live.status,
+      effectiveTtl(live.email, await inviteTtlDays()),
+    );
+    if (live.status !== 'pending' || (until && new Date(until) <= new Date())) {
+      throw new HttpError(409, 'This invite is no longer available');
+    }
     // An invite is refused for an address already in the team, so a conflict here is
     // someone who joined between the invite and this accept. setWhere rewrites only a
     // standing the invite outranks: an invite never lowers a rank.
@@ -576,10 +614,16 @@ export async function acceptInvite(
         });
     }
 
-    await tx
-      .update(teamInvite)
-      .set({ status: 'accepted', acceptedByUserId: userId, respondedAt: new Date() })
-      .where(eq(teamInvite.id, invite.id));
+    if (live.email != null) {
+      await tx
+        .update(teamInvite)
+        .set({
+          status: 'accepted',
+          acceptedByUserId: userId,
+          respondedAt: new Date(),
+        })
+        .where(eq(teamInvite.id, invite.id));
+    }
 
     const [joinedTeam] = await tx
       .select({ id: team.id, name: team.name, slug: team.slug })
@@ -620,7 +664,11 @@ export async function listReceivedInvites(
   );
   const [items, counts] = await Promise.all([
     db
-      .select({ token: teamInvite.token, teamName: team.name, projectName: project.name })
+      .select({
+        token: teamInvite.token,
+        teamName: team.name,
+        projectName: project.name,
+      })
       .from(teamInvite)
       .innerJoin(team, eq(team.id, teamInvite.teamId))
       .leftJoin(project, eq(project.id, teamInvite.projectId))

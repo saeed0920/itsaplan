@@ -1,4 +1,5 @@
-import { Bot } from 'grammy';
+import { Bot, type ApiClientOptions } from 'grammy';
+import { telegramFetch } from '@repo/net/telegram';
 import { confirmTelegramLink } from './db';
 
 // The Telegram bot itself. Today it handles one thing: the `/start <code>` deep link
@@ -10,7 +11,10 @@ const HELP =
   'To connect it, open Accounts in your profile and press Connect for Telegram.';
 
 export function createBot(token: string): Bot {
-  const bot = new Bot(token);
+  // grammY types its transport as node-fetch; Bun supplies the text/JSON fetch API used here.
+  const bot = new Bot(token, {
+    client: { fetch: telegramFetch as unknown as ApiClientOptions['fetch'] },
+  });
 
   bot.command('start', async (ctx) => {
     // For /start, ctx.match is the deep-link payload — empty when the user opened the

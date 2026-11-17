@@ -307,6 +307,11 @@ export const projectSetting = pgTable(
 // not stored — it lasts as long as that issue stays open. auto_watch is whether the
 // user is subscribed to the issues they create, are assigned, comment on or are
 // mentioned in (see issue_watcher); off means they only ever subscribe by hand.
+//
+// TODO(andrew): store the settings in one jsonb column, so a new one needs no migration.
+// The migration copies the current values into it and drops their columns;
+// last_project_id stays a column for its FK. Defaults and allowed values then live in
+// the api's defaults() and model.ts.
 export const userPreference = pgTable(
   'user_preference',
   {
@@ -324,6 +329,9 @@ export const userPreference = pgTable(
     issueStatsView: text('issue_stats_view').notNull().default('compact'),
     issueActivityView: text('issue_activity_view').notNull().default('flat'),
     autoWatch: boolean('auto_watch').notNull().default(true),
+    // Whether the user closed the tour of the product. Every account starts without it,
+    // so one made before the tour existed sees it once too.
+    onboardingSeen: boolean('onboarding_seen').notNull().default(false),
     // The user's own keyboard shortcut overrides, as { hotkeyId: combo }. Only the
     // bindings they changed are stored; the rest come from the instance defaults
     // (app_setting key 'hotkeys') and then the built-in ones.
@@ -370,7 +378,9 @@ export const teamRole = pgTable(
   'team_role',
   {
     id: serial('id').primaryKey(),
-    teamId: integer('team_id').references(() => team.id, { onDelete: 'cascade' }),
+    teamId: integer('team_id').references(() => team.id, {
+      onDelete: 'cascade',
+    }),
     name: text('name').notNull(),
     isDefault: boolean('is_default').notNull().default(false),
     permissions: jsonb('permissions').notNull().default({}),
@@ -449,8 +459,10 @@ export const teamInvite = pgTable(
       .notNull()
       .references(() => team.id, { onDelete: 'cascade' }),
     // NULL for an invite into the team alone.
-    projectId: integer('project_id').references(() => project.id, { onDelete: 'cascade' }),
-    email: text('email').notNull(),
+    projectId: integer('project_id').references(() => project.id, {
+      onDelete: 'cascade',
+    }),
+    email: text('email'),
     // An invite that names a project always brings its invitee into the team as a
     // plain member; a rank above that is granted by an invite into the team itself.
     teamRole: text('team_role').notNull().default('member'),
@@ -472,6 +484,10 @@ export const teamInvite = pgTable(
     respondedAt: timestamp('responded_at', { withTimezone: true }),
   },
   (t) => [
+    check(
+      'team_invite_shared_member_check',
+      sql`${t.email} IS NOT NULL OR (${t.projectId} IS NULL AND ${t.teamRole} = 'member' AND ${t.roleId} IS NULL)`,
+    ),
     check('team_invite_team_role_check', sql`${t.teamRole} IN ('owner', 'manager', 'member')`),
     check(
       'team_invite_project_role_check',
@@ -641,7 +657,9 @@ export const aiAgent = pgTable(
     // The member who created the agent. An external agent's runner authenticates
     // with the agent's key, so `owner` scope means the runner only receives runs
     // this member triggered; `team` scope, the default, means any member's.
-    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'set null' }),
+    ownerUserId: text('owner_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     runnerScope: text('runner_scope').notNull().default('team'),
     // Last time a runner claimed work or sent a heartbeat for this agent, which is
     // what the UI shows as its presence. NULL for an agent no runner ever polled.
@@ -702,7 +720,9 @@ export const agentSchedule = pgTable(
     timezone: text('timezone').notNull(),
     status: text('status').notNull().default('active'),
     nextRunAt: timestamp('next_run_at', { withTimezone: true }),
-    columnId: integer('column_id').references(() => projectColumn.id, { onDelete: 'cascade' }),
+    columnId: integer('column_id').references(() => projectColumn.id, {
+      onDelete: 'cascade',
+    }),
     delaySec: integer('delay_sec').notNull().default(0),
     // Settings an extension of the api keeps on the schedule. The core stores and
     // copies them and reads none.
@@ -776,8 +796,12 @@ export const agentRun = pgTable(
     projectId: integer('project_id')
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
-    issueId: integer('issue_id').references(() => issue.id, { onDelete: 'cascade' }),
-    scheduleId: integer('schedule_id').references(() => agentSchedule.id, { onDelete: 'cascade' }),
+    issueId: integer('issue_id').references(() => issue.id, {
+      onDelete: 'cascade',
+    }),
+    scheduleId: integer('schedule_id').references(() => agentSchedule.id, {
+      onDelete: 'cascade',
+    }),
     // 'event' is a run an extension queued on an issue for a schedule of its own type.
     trigger: text('trigger').notNull().default('delegation'),
     scheduledFor: timestamp('scheduled_for', { withTimezone: true }),
@@ -811,7 +835,9 @@ export const agentRun = pgTable(
     inputTokens: integer('input_tokens'),
     outputTokens: integer('output_tokens'),
     startedAt: timestamp('started_at', { withTimezone: true }),
-    executionStartedAt: timestamp('execution_started_at', { withTimezone: true }),
+    executionStartedAt: timestamp('execution_started_at', {
+      withTimezone: true,
+    }),
     // The api's current claim of an internal agent's run; null while the run waits,
     // deferred or in retry backoff. The instance's run limit counts the claimed runs.
     claimedAt: timestamp('claimed_at', { withTimezone: true }),
@@ -1089,12 +1115,13 @@ export const teamNotificationSetting = pgTable('team_notification_setting', {
 });
 
 // A member's own notification preferences for one project: for each issue event
-// type, whether they want it by email and/or Telegram. One row per (user, project);
-// absent means the member has not opted in and receives nothing.
-// email_events/telegram_events are EventToggles jsonb keyed by the four inbox
-// notification types (assigned/mentioned/commented/state_changed). Email is sent to
-// the member's account address; Telegram to the chat of the account they linked in
-// user_telegram_account, which is instance-wide rather than per project.
+// type, whether they want it by email, Telegram and/or Web Push. One row per (user,
+// project); absent means the member has not opted in and receives nothing.
+// email_events/telegram_events/push_events are EventToggles jsonb keyed by the four
+// inbox notification types (assigned/mentioned/commented/state_changed). Email is sent
+// to the member's account address; Telegram to the chat of the account they linked in
+// user_telegram_account, and push to every browser in push_subscription. Both are
+// instance-wide rather than per project.
 export const userNotificationPreference = pgTable(
   'user_notification_preference',
   {
@@ -1107,6 +1134,7 @@ export const userNotificationPreference = pgTable(
       .references(() => project.id, { onDelete: 'cascade' }),
     emailEvents: jsonb('email_events').notNull().default({}),
     telegramEvents: jsonb('telegram_events').notNull().default({}),
+    pushEvents: jsonb('push_events').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1131,7 +1159,9 @@ export const userTelegramAccount = pgTable(
     username: text('username'),
     firstName: text('first_name'),
     linkCode: text('link_code'),
-    linkCodeExpiresAt: timestamp('link_code_expires_at', { withTimezone: true }),
+    linkCodeExpiresAt: timestamp('link_code_expires_at', {
+      withTimezone: true,
+    }),
     linkedAt: timestamp('linked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1145,19 +1175,47 @@ export const userTelegramAccount = pgTable(
   ],
 );
 
+// A browser a user turned push notifications on in, instance-wide like the Telegram
+// link. The endpoint is the URL the browser's push service issued for it; p256dh and
+// auth are the browser's keys the payload is encrypted to (RFC 8291). vapid_public_key
+// is the instance key the browser subscribed with: once the instance has other keys, the
+// push service refuses this instance's token for it, so nothing is queued for it. A user
+// keeps at most 10 rows, the oldest dropped first, and a push service that answers 404 or
+// 410 for an endpoint has its row deleted.
+export const pushSubscription = pgTable(
+  'push_subscription',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    vapidPublicKey: text('vapid_public_key').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('push_subscription_endpoint_unique').on(t.endpoint),
+    index('push_subscription_user_idx').on(t.userId, t.createdAt),
+  ],
+);
+
 // Outbox for outbound notification delivery. One row per (recipient, channel,
-// message) to send for an issue event: an email or a Telegram message to one member.
-// Rows are enqueued when inbox notifications are created (see
+// message) to send for an issue event: an email, a Telegram message or a push
+// message to one member. Rows are enqueued when inbox notifications are created (see
 // apps/api/src/modules/notifications/outbound.ts) and drained by the worker
 // following the same claim/retry pattern as webhook_delivery. The message text is
 // composed at enqueue time and stored in `payload`; the channel credentials are read
-// from team_notification_setting at send time. channel is 'email' | 'telegram'
-// ('email' picks SMTP or Resend from the team config). recipient is the member's
-// email address for email rows, or their Telegram chat id for telegram rows.
+// from team_notification_setting at send time, and the push keys from the instance
+// environment. channel is 'email' | 'telegram' | 'push' ('email' picks SMTP or Resend
+// from the team config). recipient is the member's email address for email rows,
+// their Telegram chat id for telegram rows, or a push_subscription id for push rows.
 // The stored message on a notification_delivery row, composed at enqueue time by the
 // api and read by the worker that sends it. Email uses `subject` and sends `html` as composed;
 // for a row without `html` the sender appends `url` to `text` and wraps it. Telegram sends
-// `html` (parse_mode HTML) and falls back to `text`. `dedupeKey` is what the enqueue side
+// `html` (parse_mode HTML) and falls back to `text`. Push sends `{ title, body: text, url,
+// tag }` to the service worker. `dedupeKey` is what the enqueue side
 // matches to avoid queuing the same message twice; `projectInviteId` ties an invite email to
 // its invite, so a delivery whose invite is no longer pending is dropped instead of sent.
 export interface DeliveryPayload {
@@ -1165,6 +1223,8 @@ export interface DeliveryPayload {
   text: string;
   html?: string;
   url?: string;
+  title?: string;
+  tag?: string;
   emailSource?: 'project' | 'instance';
   idempotencyKey?: string;
   dedupeKey?: string;
@@ -1188,7 +1248,10 @@ export const notificationDelivery = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    check('notification_delivery_channel_check', sql`${t.channel} IN ('email', 'telegram')`),
+    check(
+      'notification_delivery_channel_check',
+      sql`${t.channel} IN ('email', 'telegram', 'push')`,
+    ),
     // Backs the worker's claim query: due pending rows ordered by next_attempt_at.
     index('notification_delivery_due_idx')
       .on(t.nextAttemptAt)
@@ -1384,10 +1447,16 @@ export const issueTemplate = pgTable(
     // The title and body the issue starts with, both editable before it is created.
     titleTemplate: text('title_template').notNull().default(''),
     descriptionTemplate: text('description_template').notNull().default(''),
-    typeId: integer('type_id').references(() => issueType.id, { onDelete: 'set null' }),
-    columnId: integer('column_id').references(() => projectColumn.id, { onDelete: 'set null' }),
+    typeId: integer('type_id').references(() => issueType.id, {
+      onDelete: 'set null',
+    }),
+    columnId: integer('column_id').references(() => projectColumn.id, {
+      onDelete: 'set null',
+    }),
     priority: text('priority'),
-    assigneeUserId: text('assignee_user_id').references(() => user.id, { onDelete: 'set null' }),
+    assigneeUserId: text('assignee_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique().on(t.projectId, t.name)],
@@ -1532,7 +1601,9 @@ export const issue = pgTable(
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
     sequenceNumber: integer('sequence_number').notNull(),
-    archiveId: integer('archive_id').references(() => issueArchive.id, { onDelete: 'set null' }),
+    archiveId: integer('archive_id').references(() => issueArchive.id, {
+      onDelete: 'set null',
+    }),
     typeId: integer('type_id').references(() => issueType.id, {
       onDelete: 'set null',
     }),
@@ -1549,8 +1620,8 @@ export const issue = pgTable(
     columnId: integer('column_id')
       .notNull()
       .references(() => projectColumn.id),
-    // The issue this one is a subtask of (same project). One level deep: an issue
-    // with a parent cannot itself be a parent, which the API enforces. Deleting or
+    // The issue this one is a subtask of (same project). Nesting stops at
+    // MAX_SUBTASK_DEPTH levels (issue-tree.ts). Deleting or
     // archiving a parent asks what to do with its subtasks, so the ON DELETE here
     // only covers the paths that bypass that choice (a deleted project).
     parentId: integer('parent_id').references((): AnyPgColumn => issue.id, {
@@ -1715,7 +1786,9 @@ export const issueStatus = pgTable(
       .notNull()
       .references(() => issue.id, { onDelete: 'cascade' }),
     // NULL once the column is deleted, which keeps the stretches spent in it.
-    columnId: integer('column_id').references(() => projectColumn.id, { onDelete: 'set null' }),
+    columnId: integer('column_id').references(() => projectColumn.id, {
+      onDelete: 'set null',
+    }),
     // The name the column had at that moment. NULL only in a backfilled row whose
     // change-log entry recorded none.
     columnName: text('column_name'),
@@ -1828,7 +1901,9 @@ export const issueFieldValue = pgTable(
     valueDatetimeEnd: timestamp('value_datetime_end', { withTimezone: true }),
     // member fields. Deleting the user clears the field rather than the row, so the
     // issue keeps the rest of its values.
-    valueUserId: text('value_user_id').references(() => user.id, { onDelete: 'set null' }),
+    valueUserId: text('value_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
   },
   (t) => [unique().on(t.issueId, t.fieldId)],
 );
@@ -2138,7 +2213,9 @@ export const projectView = pgTable(
     // is set only on private views, so deleting an account takes its private views and
     // never a project's.
     isPrivate: boolean('is_private').notNull().default(false),
-    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'cascade' }),
+    ownerUserId: text('owner_user_id').references(() => user.id, {
+      onDelete: 'cascade',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -2397,8 +2474,12 @@ export const noteBoard = pgTable(
     projectId: integer('project_id')
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
-    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'cascade' }),
-    createdByUserId: text('created_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+    ownerUserId: text('owner_user_id').references(() => user.id, {
+      onDelete: 'cascade',
+    }),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     name: text('name').notNull(),
     canvas: jsonb('canvas').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -2523,6 +2604,10 @@ export const importJob = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     source: text('source').notNull(),
+    // The board, team or project the job reads and the address that opens it in the
+    // source, as its reader names them once Discover starts; null until then.
+    sourceProjectName: text('source_project_name'),
+    sourceProjectUrl: text('source_project_url'),
     phase: text('phase').notNull().default('discover'),
     status: text('status').notNull().default('pending'),
     config: jsonb('config').notNull().default({}),
@@ -2578,11 +2663,11 @@ export const importRecord = pgTable(
   (t) => [
     check(
       'import_record_source_entity_type_check',
-      sql`${t.sourceEntityType} IN ('issue', 'comment', 'label', 'state', 'cycle', 'attachment', 'checklist', 'custom_field')`,
+      sql`${t.sourceEntityType} IN ('issue', 'comment', 'label', 'state', 'cycle', 'attachment', 'checklist', 'custom_field', 'issue_type', 'initiative', 'worklog')`,
     ),
     check(
       'import_record_local_entity_type_check',
-      sql`${t.localEntityType} IS NULL OR ${t.localEntityType} IN ('issue', 'comment', 'label', 'state', 'cycle', 'attachment', 'checklist', 'custom_field')`,
+      sql`${t.localEntityType} IS NULL OR ${t.localEntityType} IN ('issue', 'comment', 'label', 'state', 'cycle', 'attachment', 'checklist', 'custom_field', 'issue_type', 'initiative', 'worklog', 'initiative_attachment')`,
     ),
     uniqueIndex('import_record_job_source_uq').on(t.importJobId, t.sourceEntityType, t.sourceId),
     index('import_record_job_local_idx').on(t.importJobId, t.localEntityType, t.localId),
@@ -2611,7 +2696,9 @@ export const notification = pgTable(
     projectId: integer('project_id')
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
-    issueId: integer('issue_id').references(() => issue.id, { onDelete: 'cascade' }),
+    issueId: integer('issue_id').references(() => issue.id, {
+      onDelete: 'cascade',
+    }),
     sourceActivityId: integer('source_activity_id').references(() => issueActivity.id, {
       onDelete: 'set null',
     }),
@@ -2706,7 +2793,9 @@ export const documentComment = pgTable(
     parentId: uuid('parent_id').references((): AnyPgColumn => documentComment.id, {
       onDelete: 'cascade',
     }),
-    authorId: text('author_id').references(() => user.id, { onDelete: 'set null' }),
+    authorId: text('author_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     body: text('body').notNull(),
     quote: text('quote').notNull().default(''),
     from: integer('selection_from'),

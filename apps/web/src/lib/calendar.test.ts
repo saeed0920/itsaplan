@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, it } from 'node:test';
 import { calendarLib } from './calendar';
-import { buildCalendarModel } from '@/features/work-items/utils/calendar';
+import { visibleDays } from '@/features/work-items/utils/calendar';
 import { buildDayTrack } from '@/utils/timelineTrack';
 import { defaultViewSettings, normalizeSavedDisplay } from '@/utils/viewSettings';
 import {
@@ -13,7 +13,6 @@ import {
   toDateStr,
 } from '@/utils/dates';
 
-const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 afterEach(() => {
   setDisplayCalendar('gregory');
   setDisplayLocale('en');
@@ -34,16 +33,22 @@ it('uses Persian month arithmetic at Nowruz and leap-year Esfand without changin
 
 it('builds a Saturday-first Persian month grid, not a Gregorian month with Persian labels', () => {
   const cursor = parseDate('2025-03-21')!;
-  const model = buildCalendarModel([], 'dueDate', null, 6, cursor, weekdays, 'persian');
-  assert.deepEqual(model.weekdays, ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
-  assert.equal(model.days.length, 42);
-  assert.equal(toDateStr(model.days[0]), '2025-03-15');
-  const inMonth = model.days.filter((day) => calendarLib('persian').isSameMonth(day, cursor));
+  const layout = {
+    calendarMode: 'month' as const,
+    calendarDays: 7,
+    calendarWeeks: 4,
+    weekStart: 6 as const,
+  };
+  const days = visibleDays(cursor, layout, 'persian');
+  assert.equal(days[0].getDay(), 6);
+  assert.equal(days.length, 42);
+  assert.equal(toDateStr(days[0]), '2025-03-15');
+  const inMonth = days.filter((day) => calendarLib('persian').isSameMonth(day, cursor));
   assert.equal(inMonth.length, 31);
   assert.equal(toDateStr(inMonth[0]), '2025-03-21');
   assert.equal(toDateStr(inMonth.at(-1)!), '2025-04-20');
-  const gregorian = buildCalendarModel([], 'dueDate', null, 1, cursor, weekdays);
-  assert.equal(gregorian.days[0].getDay(), 1);
+  const gregorian = visibleDays(cursor, { ...layout, weekStart: 1 });
+  assert.equal(gregorian[0].getDay(), 1);
   assert.equal(toDateStr(calendarLib('gregory').startOfMonth(cursor)), '2025-03-01');
 });
 

@@ -114,6 +114,7 @@ services:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
+      TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
       API_PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER:-itsaplan}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-itsaplan}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
@@ -141,6 +142,11 @@ services:
       # Hosts trusted even though they resolve privately. Also governs webhook URL
       # validation and attachment import.
       SSRF_ALLOWED_HOSTS: ${SSRF_ALLOWED_HOSTS:-}
+      # Web Push. Push is off while any of the three is empty; `bun run web-push:keys`
+      # prints a key pair. The worker needs the same values.
+      WEB_PUSH_VAPID_PUBLIC_KEY: ${WEB_PUSH_VAPID_PUBLIC_KEY:-}
+      WEB_PUSH_VAPID_PRIVATE_KEY: ${WEB_PUSH_VAPID_PRIVATE_KEY:-}
+      WEB_PUSH_SUBJECT: ${WEB_PUSH_SUBJECT:-}
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/']
       interval: 15s
@@ -150,8 +156,9 @@ services:
     ports:
       - '${API_PORT:-3000}:3000'
 
-  # Webhook delivery, notification delivery, agent schedules, and agent runs.
-  # Shares the database with the api. No public ports.
+  # Webhook and notification delivery, source imports, and the agent schedules, whose
+  # runs it queues for the api to execute. Shares the database with the api. No public
+  # ports.
   worker:
     image: ghcr.io/croffasia/itsaplan-pro-worker:${VERSION:-latest}
     restart: unless-stopped
@@ -162,11 +169,14 @@ services:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
+      TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
       DATABASE_URL: postgres://${POSTGRES_USER:-itsaplan}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-itsaplan}
       # Notification delivery sends email and Telegram messages itself, with the
       # provider credentials stored in the database — encrypted with this key, the
       # same value the api uses.
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY in .env}
+      # The Pro license is checked against the host of this origin, as the api does.
+      APP_URL: ${APP_URL:?public origin of the web app, e.g. https://app.example.com}
       # Anonymous telemetry (TELEMETRY.md). Either variable, set to anything but 0,
       # turns it off.
       TELEMETRY_DISABLED: ${TELEMETRY_DISABLED:-}
@@ -174,6 +184,10 @@ services:
       TELEMETRY_DEBUG: ${TELEMETRY_DEBUG:-}
       # The same list the api reads. This process delivers webhooks to those hosts.
       SSRF_ALLOWED_HOSTS: ${SSRF_ALLOWED_HOSTS:-}
+      # The same values the api reads. This process signs and sends the push messages.
+      WEB_PUSH_VAPID_PUBLIC_KEY: ${WEB_PUSH_VAPID_PUBLIC_KEY:-}
+      WEB_PUSH_VAPID_PRIVATE_KEY: ${WEB_PUSH_VAPID_PRIVATE_KEY:-}
+      WEB_PUSH_SUBJECT: ${WEB_PUSH_SUBJECT:-}
       # A downloaded Plane import attachment is stored here, the same bucket the
       # api's own uploads use.
       S3_ENDPOINT: http://minio:9000
@@ -182,7 +196,6 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-}
-      # Optional tuning lives in apps/worker/src/config.ts.
 
   # Telegram bot: long polling for the instance bot, completing the account links
   # users start from their profile. The bot token is stored in the database and
@@ -200,6 +213,7 @@ services:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
+      TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
       DATABASE_URL: postgres://${POSTGRES_USER:-itsaplan}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-itsaplan}
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY in .env}
 

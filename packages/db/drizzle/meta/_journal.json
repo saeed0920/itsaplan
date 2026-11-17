@@ -1261,6 +1261,48 @@
       "when": 1794679509254,
       "tag": "0179_chilly_multiple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 180,
+      "version": "7",
+      "when": 1794738171966,
+      "tag": "0180_far_lorna_dane",
+      "breakpoints": true
+    },
+    {
+      "idx": 181,
+      "version": "7",
+      "when": 1794738171967,
+      "tag": "0181_upstream_import_record_more_entities",
+      "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1794738171968,
+      "tag": "0182_upstream_import_job_source_project",
+      "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1794738171969,
+      "tag": "0183_upstream_onboarding_seen",
+      "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1794738171970,
+      "tag": "0184_upstream_seed_job_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1794738171971,
+      "tag": "0185_upstream_web_push",
+      "breakpoints": true
     }
   ]
 }

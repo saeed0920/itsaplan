@@ -19,7 +19,7 @@ import {
   composeEmail,
   emailLocale,
 } from '@repo/auth';
-import { hasConfiguredEmailProvider, getStorageSettings } from '@repo/db';
+import { hasConfiguredEmailProvider, getJobSettings, getStorageSettings } from '@repo/db';
 import { hasEmailProvider } from '@repo/mailer';
 import { authContext } from '#shared/auth-context';
 import { requireGod } from '#shared/access';
@@ -108,8 +108,11 @@ import {
   setProjectDefaults,
   getAgentSettings,
   setAgentSettings,
+  setJobSettings,
   getSharingSettings,
   setSharingSettings,
+  getApiDocsSettings,
+  setApiDocsSettings,
 } from '#modules/settings/service';
 import { getUpdateStatus } from '#modules/settings/updates';
 import { RoleResponse, createRoleBody, updateRoleBody } from '#modules/roles/model';
@@ -124,8 +127,11 @@ import {
 } from '#modules/roles/service';
 import {
   AgentSettingsSchema,
+  ApiDocsSettingsSchema,
   EmbedSitesSchema,
   HotkeyCombosSchema,
+  JobSettingsBody,
+  JobSettingsSchema,
   ProjectDefaultsSchema,
   SharingSettingsSchema,
   StorageSettingsSchema,
@@ -524,6 +530,27 @@ export const godRoutes = new Elysia({ name: 'god', detail: { tags: ['God'] } })
     },
   })
 
+  .get('/god/job-settings', () => getJobSettings(), {
+    response: { 200: JobSettingsSchema, ...errors(401, 403) },
+    detail: {
+      summary: 'Get background job settings',
+      description:
+        'Get how the background jobs run: poll intervals, batch sizes, leases, attempts and cleanup intervals.',
+    },
+  })
+
+  .put('/god/job-settings', ({ body }) => setJobSettings(body), {
+    body: JobSettingsBody,
+    response: { 200: JobSettingsSchema, ...errors(400, 401, 403) },
+    detail: {
+      summary: 'Update background job settings',
+      description:
+        'Update how the background jobs run. Fields left out keep their value. Each job reads ' +
+        'the settings on its next pass, so no restart is needed. A lease must be longer than ' +
+        'the timeout of the request it covers.',
+    },
+  })
+
   .get('/god/sharing-settings', () => getSharingSettings(), {
     response: { 200: SharingSettingsSchema, ...errors(401, 403) },
     detail: {
@@ -540,6 +567,26 @@ export const godRoutes = new Elysia({ name: 'god', detail: { tags: ['God'] } })
       description:
         'Turn public links on or off for the whole instance. Off closes every link and ' +
         'refuses a new one; on opens the same links again, as each workspace allows.',
+    },
+  })
+
+  .get('/god/api-docs-settings', () => getApiDocsSettings(), {
+    response: { 200: ApiDocsSettingsSchema, ...errors(401, 403) },
+    detail: {
+      summary: 'Get who may read the API docs',
+      description:
+        'Get who may read the API docs, in the app and at /docs and /api/auth/reference.',
+    },
+  })
+
+  .put('/god/api-docs-settings', ({ body }) => setApiDocsSettings(body), {
+    body: ApiDocsSettingsSchema,
+    response: { 200: ApiDocsSettingsSchema, ...errors(400, 401, 403) },
+    detail: {
+      summary: 'Update who may read the API docs',
+      description:
+        'Set who may read the API docs, in the app and at /docs and /api/auth/reference. The ' +
+        'instance owner may under every audience except `nobody`.',
     },
   })
 

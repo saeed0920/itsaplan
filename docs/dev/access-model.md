@@ -37,7 +37,7 @@ or on the request body is checked in the handler or the service.
   take the reached teams the same way. `listProjects` and `listTeams` answer `via: 'workspace'`
   for what the caller reaches only through the workspace.
 - Two caller checks use the rows. `agentScopeOf` gives every agent of a team only to someone who
-  runs the team; anyone else, a workspace admin included, reaches the agents that share a
+  runs the team; anyone else, a workspace admin included, reaches agents they own and those that share a
   `project_member` row with them. A private view takes a project membership of their own
   (`via: 'member'`).
 - **Whether someone else is a member:** assignees, mentions, watchers, notification recipients,
@@ -133,7 +133,12 @@ or on the request body is checked in the handler or the service.
   attaching an agent, SCIM and the hand-over of sole ownership write rows without an invite.
 - **Who invites:** a project invite takes `memberAdmin: ["members_invite", "create"]`, a team
   invite (`POST /teams/:teamId/invites`) takes `teamManager`.
-- An invite belongs to its address: accepting takes a session with that email, otherwise 403.
+- An addressed invite belongs to its address: accepting takes a session with that email, otherwise 403.
+- A team invite without an email is a reusable member-only link. Any active signed-in account
+  holding it may explicitly join. It grants no project role, never lowers an existing team rank,
+  and expires after the shorter of the instance lifetime and seven days (seven when unlimited).
+  Managers can revoke it; recipients cannot reject it for everyone. Acceptance rechecks the
+  sender's invitation authority. Renewal issues a new token and removes the expired link.
 - One pending invite per (project, email), and one pending team invite with no project per (team,
   email). Partial unique indexes answer 409, so an address can hold one of each.
 - An address already in the project or the team gets 409. A team member is added from the member
@@ -147,8 +152,10 @@ or on the request body is checked in the handler or the service.
   create and renew. By default an address with an account passes, and one without passes when its
   domain is in `allowedEmailDomains` (an empty list allows all). It does not read `registration`,
   so an invite can go to an address that cannot register on a closed instance.
-  `GET /teams/:teamId/invites/candidates` leaves out whom the policy refuses, and answers 403 while
-  `inviteSearch` is off (the default).
+  `GET /teams/:teamId/invites/candidates` leaves out whom the policy refuses. It always searches
+  people in the workspace's teams and workspace managers, excluding the target team's members
+  and AI agents. Empty search offers up to eight workspace people. With `inviteSearch` enabled,
+  searches of at least two characters also match accounts outside the workspace.
 
 ## Member lists
 
@@ -168,10 +175,11 @@ or on the request body is checked in the handler or the service.
   accepted, so a sender who was demoted or deleted leaves the link refused (409). It covers project
   `owner` and a team rank above `member`. A plain or custom-role link stays valid. Removing the
   sender from the team deletes their pending invites there (404).
-- **Custom roles:** adding, re-roling, inviting or renewing with a `roleId` goes through
-  `assertGrantablePermissions`, which refuses a role that grants more than the granter holds. A
-  project owner, or an owner or manager of the team, is not capped. The project's invite list hides
-  the link of an invite whose role the viewer could not grant.
+- **Member roles:** adding, re-roling, inviting or renewing goes through
+  `assertGrantablePermissions` on the role it grants: the `roleId`, or the default role when there
+  is none. It refuses a role that grants more than the granter holds. A project owner, or an owner
+  or manager of the team, is not capped. The project's invite list hides the link of an invite
+  whose role the viewer could not grant.
 
 ## SCIM rows
 

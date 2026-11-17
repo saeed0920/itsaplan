@@ -67,7 +67,9 @@ import {
   attachSubtaskCounts,
   disposeSubtasksOf,
   getParentRef,
+  listAncestors,
   listSubtasks,
+  listSubtree,
   restoreSubtasksOf,
   type SubtaskDisposition,
   type SubtaskMode,
@@ -175,6 +177,8 @@ import {
   BulkArchivedResponse,
   BulkDeletedResponse,
   BoardResponse,
+  SubtreeIssueResponse,
+  subtreeQuery,
   WatchStateResponse,
 } from './model';
 
@@ -541,6 +545,21 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
     },
   )
 
+  // Every issue under the listed ones, archived ones included, so the delete, archive
+  // and move confirmations can show what the action takes along. Web-only.
+  .get(
+    '/projects/:projectKey/issues/subtree',
+    async ({ project, query }) =>
+      listSubtree(project.id, query.ids.split(',').map(Number).filter(Number.isInteger)),
+    {
+      params: projectKeyParams,
+      query: subtreeQuery,
+      permission: ['work_items', 'read'],
+      response: { 200: t.Array(SubtreeIssueResponse), ...commonErrors },
+      detail: { summary: 'List the issues under issues' },
+    },
+  )
+
   .get('/projects/:projectKey/archives', ({ project }) => listIssueArchives(project.id), {
     params: projectKeyParams,
     permission: ['work_items', 'read'],
@@ -606,9 +625,20 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
       const watchers = await listIssueWatchers(issue.projectId, issue.id);
       const parent = await getParentRef(issue.parentId);
       const subtasks = await listSubtasks(issue.id);
+      const ancestors = await listAncestors(issue.id);
       const checklists = await listChecklists(issue.id);
       const development = await listIssueDevelopmentLinks(issue.id);
-      return { ...issue, fields, links, watchers, parent, subtasks, checklists, development };
+      return {
+        ...issue,
+        fields,
+        links,
+        watchers,
+        parent,
+        subtasks,
+        ancestors,
+        checklists,
+        development,
+      };
     },
     {
       params: issueSequenceParams,
@@ -734,9 +764,20 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
       const watchers = await listIssueWatchers(issue.projectId, issue.id);
       const parent = await getParentRef(issue.parentId);
       const subtasks = await listSubtasks(issue.id);
+      const ancestors = await listAncestors(issue.id);
       const checklists = await listChecklists(issue.id);
       const development = await listIssueDevelopmentLinks(issue.id);
-      return { ...issue, fields, links, watchers, parent, subtasks, checklists, development };
+      return {
+        ...issue,
+        fields,
+        links,
+        watchers,
+        parent,
+        subtasks,
+        ancestors,
+        checklists,
+        development,
+      };
     },
     {
       params: issueParams,
@@ -1032,7 +1073,7 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
       const actorUserId = requireUser(user).id;
       const issue = await restoreIssue(params.issueId, actorUserId);
       if (!issue) throw new HttpError(404, 'Issue not found');
-      await restoreSubtasksOf(issue.id, actorUserId);
+      await restoreSubtasksOf(issue.projectId, issue.id, actorUserId);
       return issue;
     },
     {

@@ -29,6 +29,7 @@ export const PreferenceResponse = t.Object({
   issueStatsView: IssueStatsView,
   issueActivityView: IssueActivityView,
   autoWatch: t.Boolean(),
+  onboardingSeen: t.Boolean(),
   lastProjectId: t.Nullable(t.Number()),
   hotkeys: HotkeyCombosSchema,
 });
@@ -45,6 +46,7 @@ export const PreferencePatch = t.Object({
   issueStatsView: t.Optional(IssueStatsView),
   issueActivityView: t.Optional(IssueActivityView),
   autoWatch: t.Optional(t.Boolean()),
+  onboardingSeen: t.Optional(t.Boolean()),
   lastProjectId: t.Optional(t.Nullable(t.Number())),
   hotkeys: t.Optional(HotkeyCombosSchema),
 });

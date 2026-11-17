@@ -31,19 +31,14 @@ import {
 
 type Mode = 'register' | 'signin';
 
-// Authentication step for the invitee. The email is fixed to the invited address
-// (the API only lets that email accept), so it is shown read-only. A new invitee
-// registers and joins in one step, opening the project. An existing invitee only
-// signs in — the page then shows the accept/reject step so they can decide. The other
-// sign-in methods of the sign-in screen come back here, and are all there is while the
-// instance has the password form off.
+// Shared links sign in an existing account, then ask it to join explicitly.
 export default function InviteAuthForm({
   token,
-  email,
+  email: invitedEmail,
   hasAccount,
 }: {
   token: string;
-  email: string;
+  email: string | null;
   hasAccount: boolean;
 }) {
   const t = useTranslations('invite');
@@ -55,7 +50,9 @@ export default function InviteAuthForm({
   const params = useSearchParams();
   const redirectError = useRedirectError()(params.get('error'));
   const returnTo = `/invite/${token}`;
-  const [mode, setMode] = useState<Mode>(hasAccount ? 'signin' : 'register');
+  const shared = invitedEmail == null;
+  const [email, setEmail] = useState(invitedEmail ?? '');
+  const [mode, setMode] = useState<Mode>(shared || hasAccount ? 'signin' : 'register');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +91,11 @@ export default function InviteAuthForm({
         );
         router.refresh();
       } else {
-        await signInForInvite({ email, password, signInFailed: t('signInFailed') });
+        await signInForInvite({
+          email,
+          password,
+          signInFailed: t('signInFailed'),
+        });
         router.refresh();
       }
     } catch (err) {
@@ -135,8 +136,16 @@ export default function InviteAuthForm({
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="invite-email">{t('emailLabel')}</FieldLabel>
-          <Input id="invite-email" type="email" value={email} readOnly disabled />
-          <FieldDescription>{t('emailHint')}</FieldDescription>
+          <Input
+            id="invite-email"
+            type="email"
+            value={email}
+            readOnly={!shared}
+            disabled={!shared || pending}
+            required
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          {!shared && <FieldDescription>{t('emailHint')}</FieldDescription>}
         </Field>
 
         {passwordEnabled && (
@@ -194,7 +203,7 @@ export default function InviteAuthForm({
           onPasskey={() => void signInOtherwise(signInWithPasskey, tAuth('passkey'))}
         />
 
-        {passwordEnabled && (
+        {passwordEnabled && !shared && (
           <FieldDescription className="text-center">
             {isRegister ? t('haveAccount') : t('needAccount')}{' '}
             <button

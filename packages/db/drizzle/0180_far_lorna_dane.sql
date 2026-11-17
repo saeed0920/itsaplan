@@ -1,0 +1,2 @@
+ALTER TABLE "team_invite" ALTER COLUMN "email" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "team_invite" ADD CONSTRAINT "team_invite_shared_member_check" CHECK ("team_invite"."email" IS NOT NULL OR ("team_invite"."project_id" IS NULL AND "team_invite"."team_role" = 'member' AND "team_invite"."role_id" IS NULL));

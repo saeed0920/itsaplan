@@ -18,7 +18,7 @@ interface InviteProject {
 }
 
 async function inviteLocale(invite: InviteRow): Promise<Locale> {
-  const invited = await savedLocaleOf(invite.email);
+  const invited = invite.email ? await savedLocaleOf(invite.email) : null;
   if (invited) return invited;
   const sender = invite.invitedByEmail ? await savedLocaleOf(invite.invitedByEmail) : null;
   return sender ?? DEFAULT_LOCALE;
@@ -37,6 +37,8 @@ export async function enqueueInviteEmail(
   project: InviteProject,
   invite: InviteRow,
 ): Promise<boolean> {
+  const address = invite.email;
+  if (!address) return false;
   const config = await getInstanceEmailConfig();
   if (!config || !hasEmailProvider(config)) return false;
 
@@ -66,7 +68,7 @@ export async function enqueueInviteEmail(
         and(
           eq(notificationDelivery.projectId, project.id),
           eq(notificationDelivery.channel, 'email'),
-          eq(notificationDelivery.recipient, invite.email),
+          eq(notificationDelivery.recipient, address),
           eq(notificationDelivery.status, 'pending'),
           sql`${notificationDelivery.payload}->>'dedupeKey' = ${dedupeKey}`,
         ),
@@ -77,7 +79,7 @@ export async function enqueueInviteEmail(
     await tx.insert(notificationDelivery).values({
       projectId: project.id,
       channel: 'email',
-      recipient: invite.email,
+      recipient: address,
       payload: {
         ...email,
         url,
@@ -95,6 +97,7 @@ export async function enqueueInviteEmail(
 // cannot be queued there. It is sent at once instead, as the sign-in emails are:
 // best effort, without the outbox's retries. A failure leaves the link to be copied.
 export async function sendTeamInviteEmail(teamId: number, invite: InviteRow): Promise<boolean> {
+  if (!invite.email) return false;
   const config = await getInstanceEmailConfig();
   if (!config || !hasEmailProvider(config)) return false;
 

@@ -22,6 +22,8 @@ import {
   type EmailDraft,
   type EmailTemplatesBody,
   type SharingSettings,
+  type ApiDocsSettings,
+  type JobSettingsPatch,
   getInstanceAuthSettings,
   updateInstanceAuthSettings,
   getInstanceEmailSettings,
@@ -43,10 +45,14 @@ import {
   updateEmailTemplates,
   getInstanceSharingSettings,
   updateInstanceSharingSettings,
+  getInstanceApiDocsSettings,
+  updateInstanceApiDocsSettings,
   getInstanceEmbedSites,
   updateInstanceEmbedSites,
   getInstanceStorageSettings,
   updateInstanceStorageSettings,
+  getInstanceJobSettings,
+  updateInstanceJobSettings,
   listInstanceUsers,
   setInstanceUserActive,
   getInstanceUser,
@@ -207,6 +213,21 @@ export function useUpdateInstanceSharingSettings() {
   });
 }
 
+export function useInstanceApiDocsSettingsQuery() {
+  return useQuery({
+    queryKey: qk.instanceApiDocsSettings,
+    queryFn: () => getInstanceApiDocsSettings(),
+  });
+}
+
+export function useUpdateInstanceApiDocsSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ApiDocsSettings) => updateInstanceApiDocsSettings(body),
+    onSuccess: (data) => qc.setQueryData(qk.instanceApiDocsSettings, data),
+  });
+}
+
 export function useEmailTemplatesQuery() {
   return useQuery({
     queryKey: qk.instanceEmailTemplates,
@@ -286,6 +307,22 @@ export function useUpdateInstanceStorageSettings() {
       // The upload UI reads the same limits through the open endpoint.
       qc.setQueryData(qk.storageSettings, data);
     },
+  });
+}
+
+// How the background jobs run: poll intervals, batch sizes, leases and attempts.
+export function useInstanceJobSettingsQuery() {
+  return useQuery({
+    queryKey: qk.instanceJobSettings,
+    queryFn: () => getInstanceJobSettings(),
+  });
+}
+
+export function useUpdateInstanceJobSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: JobSettingsPatch) => updateInstanceJobSettings(patch),
+    onSuccess: (data) => qc.setQueryData(qk.instanceJobSettings, data),
   });
 }
 
