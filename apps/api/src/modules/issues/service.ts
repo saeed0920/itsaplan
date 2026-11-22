@@ -23,6 +23,8 @@ import {
   parentLinkProblem,
   type DbExecutor,
 } from '@repo/db';
+import { assertIssueArchive } from './archives';
+import { assigneeIdsSql, assigneeCondition, replaceAdditionalAssignees } from './assignees';
 import { alias } from 'drizzle-orm/pg-core';
 import {
   and,
@@ -41,6 +43,7 @@ import {
   sql,
   type SQL,
   type SQLWrapper,
+  getTableColumns,
 } from 'drizzle-orm';
 import type { IssueQuery } from '#modules/agents/core/issue-query';
 import { iso, num, numOrNull, shareLive, HttpError } from '#shared/lib';
@@ -117,6 +120,7 @@ export interface IssueRow {
   // attachGroupings; mapIssue alone leaves it null.
   cycle: { id: number; name: string; status: CycleStatus } | null;
   assigneeUserId: string | null;
+  assigneeUserIds: string[];
   delegateUserId: string | null;
   columnId: number;
   // The issue this one is a subtask of, or null when it stands on its own.
@@ -139,6 +143,7 @@ export interface IssueRow {
   // When the issue was archived (hidden from the board but kept), or null when it
   // is active. Set by the archive action or the worker's auto-archive sweep.
   archivedAt: string | null;
+  archiveId: number | null;
   // When the issue entered its current column: the newest status-change activity,
   // or createdAt when it has never changed column. Lets the board show how long an
   // issue has sat in its current state. Populated by listIssues/getIssue; mapIssue
@@ -162,7 +167,10 @@ export interface IssueRow {
   fieldValues: IssueFieldValueEntry[];
 }
 
-function mapIssue(row: typeof issue.$inferSelect, projectKey: string): IssueRow {
+function mapIssue(
+  row: typeof issue.$inferSelect & { assigneeUserIds: string[] },
+  projectKey: string,
+): IssueRow {
   const shared = row.shareToken !== null && shareLive(row.shareExpiresAt);
   return {
     id: row.id,
@@ -173,6 +181,7 @@ function mapIssue(row: typeof issue.$inferSelect, projectKey: string): IssueRow 
     initiative: null,
     cycle: null,
     assigneeUserId: row.assigneeUserId,
+    assigneeUserIds: row.assigneeUserIds,
     delegateUserId: row.delegateUserId,
     columnId: row.columnId,
     parentId: row.parentId,
@@ -188,6 +197,7 @@ function mapIssue(row: typeof issue.$inferSelect, projectKey: string): IssueRow 
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
     archivedAt: row.archivedAt ? iso(row.archivedAt) : null,
+    archiveId: row.archiveId,
     statusSince: iso(row.createdAt),
     shareToken: shared ? row.shareToken : null,
     shareExtended: shared && row.shareExtended,
@@ -221,6 +231,7 @@ function snapshot(row: IssueRow): IssueSnapshot {
     initiativeId: row.initiative?.id ?? null,
     cycleId: row.cycle?.id ?? null,
     assigneeUserId: row.assigneeUserId,
+    assigneeUserIds: row.assigneeUserIds,
     delegateUserId: row.delegateUserId,
     priority: row.priority,
     estimatePoints: row.estimatePoints,
@@ -232,7 +243,7 @@ function snapshot(row: IssueRow): IssueSnapshot {
 
 export async function listIssues(project: ProjectRow): Promise<IssueRow[]> {
   const rows = await db
-    .select()
+    .select({ ...getTableColumns(issue), assigneeUserIds: assigneeIdsSql })
     .from(issue)
     .where(and(eq(issue.projectId, project.id), isNull(issue.archivedAt)))
     .orderBy(issue.columnId, issue.position);
@@ -245,7 +256,7 @@ export async function listIssues(project: ProjectRow): Promise<IssueRow[]> {
 // these so an owner can restore one. Same per-issue enrichment as the board.
 export async function listArchivedIssues(project: ProjectRow): Promise<IssueRow[]> {
   const rows = await db
-    .select()
+    .select({ ...getTableColumns(issue), assigneeUserIds: assigneeIdsSql })
     .from(issue)
     .where(and(eq(issue.projectId, project.id), isNotNull(issue.archivedAt)))
     .orderBy(sql`${issue.archivedAt} desc`);
@@ -259,6 +270,8 @@ export async function listArchivedIssues(project: ProjectRow): Promise<IssueRow[
 // description (which may embed large data URIs) and no field values, so the payload
 // stays small.
 export interface IssueSearchHit {
+  columnName: string | null;
+  cycleName: string | null;
   id: number;
   sequenceNumber: number;
   identifier: string;
@@ -270,6 +283,7 @@ export interface IssueSearchHit {
   parentId: number | null;
   parent: { id: number; identifier: string; title: string } | null;
   assigneeUserId: string | null;
+  assigneeUserIds: string[];
   delegateUserId: string | null;
   priority: string | null;
   dueDate: string | null;
@@ -354,6 +368,10 @@ function hitOrder(numberMatch: SQL | undefined): SQL[] {
 }
 
 const hitColumns = {
+  columnName: sql<
+    string | null
+  >`(SELECT c.name FROM ${projectColumn} c WHERE c.id = ${issue}.column_id)`,
+  cycleName: sql<string | null>`(SELECT c.name FROM ${cycle} c WHERE c.id = ${issue}.cycle_id)`,
   id: issue.id,
   sequenceNumber: issue.sequenceNumber,
   typeId: issue.typeId,
@@ -361,6 +379,7 @@ const hitColumns = {
   cycleId: issue.cycleId,
   parentId: issue.parentId,
   assigneeUserId: issue.assigneeUserId,
+  assigneeUserIds: assigneeIdsSql,
   delegateUserId: issue.delegateUserId,
   columnId: issue.columnId,
   title: issue.title,
@@ -449,12 +468,7 @@ type FieldFilters = Pick<
 // The exact filters list_issues and the cross-project list share.
 function fieldConds(filters: FieldFilters): SQL[] {
   const conds: SQL[] = [];
-  if (filters.assigneeUserId !== undefined)
-    conds.push(
-      filters.assigneeUserId === null
-        ? isNull(issue.assigneeUserId)
-        : eq(issue.assigneeUserId, filters.assigneeUserId),
-    );
+  if (filters.assigneeUserId !== undefined) conds.push(assigneeCondition(filters.assigneeUserId));
   if (filters.delegateUserId !== undefined)
     conds.push(
       filters.delegateUserId === null
@@ -692,25 +706,42 @@ export async function listIssuesInProjects(
   return hits;
 }
 
-// Archives an issue: sets archived_at so it drops off the board and lists, keeping
-// the row for restore. Idempotent (archiving an archived issue is a no-op re-stamp
-// avoided by the archived_at guard). Records a feed entry. Returns the updated
-// issue, or null if it does not exist. Archiving is reversible, so nothing the issue
-// carries is dropped — the agents' conversation threads included.
+// Moving between collections preserves the original archive date. Omitting archiveId
+// keeps the collection of an already archived issue.
 export async function archiveIssue(
   id: number,
   actorUserId?: string | null,
+  archiveId?: number | null,
 ): Promise<IssueRow | null> {
-  const [row] = await db
+  if (archiveId != null) {
+    const [current] = await db
+      .select({ projectId: issue.projectId })
+      .from(issue)
+      .where(eq(issue.id, id));
+    if (!current) return null;
+    await assertIssueArchive(current.projectId, archiveId);
+  }
+  const [firstArchived] = await db
     .update(issue)
-    .set({ archivedAt: sql`now()` })
+    .set({ archivedAt: sql`now()`, ...(archiveId !== undefined && { archiveId }) })
     .where(and(eq(issue.id, id), isNull(issue.archivedAt)))
     .returning({ id: issue.id });
-  if (!row) {
-    // Either not found, or already archived. Distinguish so a missing issue 404s.
-    return getIssue(id);
+  let row = firstArchived;
+  if (!row && archiveId !== undefined) {
+    [row] = await db
+      .update(issue)
+      .set({ archiveId })
+      .where(
+        and(
+          eq(issue.id, id),
+          isNotNull(issue.archivedAt),
+          sql`${issue.archiveId} IS DISTINCT FROM ${archiveId}`,
+        ),
+      )
+      .returning({ id: issue.id });
   }
-  await recordActivity(id, [{ action: 'archived' }], actorUserId);
+  if (!row) return getIssue(id);
+  if (firstArchived) await recordActivity(id, [{ action: 'archived' }], actorUserId);
   const archived = await getIssue(id);
   if (archived) await emitIssueEvent('issue.updated', archived, actorUserId);
   return archived;
@@ -724,7 +755,7 @@ export async function restoreIssue(
 ): Promise<IssueRow | null> {
   const [row] = await db
     .update(issue)
-    .set({ archivedAt: null })
+    .set({ archivedAt: null, archiveId: null })
     .where(and(eq(issue.id, id), isNotNull(issue.archivedAt)))
     .returning({ id: issue.id });
   if (!row) return getIssue(id);
@@ -906,6 +937,7 @@ async function loadSnapshot(
       initiativeId: issue.initiativeId,
       cycleId: issue.cycleId,
       assigneeUserId: issue.assigneeUserId,
+      assigneeUserIds: assigneeIdsSql,
       delegateUserId: issue.delegateUserId,
       priority: issue.priority,
       estimatePoints: issue.estimatePoints,
@@ -929,11 +961,13 @@ export async function getIssue(id: number): Promise<IssueRow | null> {
 export async function getIssues(ids: number[]): Promise<IssueRow[]> {
   if (ids.length === 0) return [];
   const rows = await db
-    .select({ issue, projectKey: projectTable.key })
+    .select({ issue, projectKey: projectTable.key, assigneeUserIds: assigneeIdsSql })
     .from(issue)
     .innerJoin(projectTable, eq(projectTable.id, issue.projectId))
     .where(inArray(issue.id, ids));
-  const issues = rows.map((row) => mapIssue(row.issue, row.projectKey));
+  const issues = rows.map((row) =>
+    mapIssue({ ...row.issue, assigneeUserIds: row.assigneeUserIds }, row.projectKey),
+  );
   await attachDetails(issues);
   return issues;
 }
@@ -948,7 +982,7 @@ export async function getIssueBySequence(
   sequenceNumber: number,
 ): Promise<IssueRow | null> {
   const rows = await db
-    .select({ issue, projectKey: projectTable.key })
+    .select({ issue, projectKey: projectTable.key, assigneeUserIds: assigneeIdsSql })
     .from(issue)
     .innerJoin(projectTable, eq(projectTable.id, issue.projectId))
     .where(
@@ -969,7 +1003,10 @@ export async function getIssueBySequence(
       ),
     );
   if (!rows[0]) return null;
-  const mapped = mapIssue(rows[0].issue, rows[0].projectKey);
+  const mapped = mapIssue(
+    { ...rows[0].issue, assigneeUserIds: rows[0].assigneeUserIds },
+    rows[0].projectKey,
+  );
   await attachDetails([mapped]);
   return mapped;
 }
@@ -982,6 +1019,7 @@ export async function getIssueProjectId(id: number): Promise<number | null> {
 }
 
 export interface NewIssueInput {
+  assigneeUserIds?: string[];
   typeId?: number | null;
   initiativeId?: number | null;
   cycleId?: number | null;
@@ -1004,11 +1042,21 @@ export interface NewIssueInput {
 // non-null value (clearing a field is always allowed). Throws 400 otherwise.
 async function assertAssignments(
   projectId: number,
-  patch: { assigneeUserId?: string | null; delegateUserId?: string | null },
+  patch: {
+    assigneeUserIds?: string[];
+    assigneeUserId?: string | null;
+    delegateUserId?: string | null;
+  },
 ): Promise<void> {
-  if (patch.assigneeUserId) {
-    const role = await getMembership(projectId, patch.assigneeUserId);
-    if (!role) throw new HttpError(400, 'Assignee must be a project member');
+  if (patch.assigneeUserIds !== undefined && patch.assigneeUserId !== undefined)
+    throw new HttpError(400, 'Send assigneeUserIds or assigneeUserId, not both');
+  const ids = patch.assigneeUserIds ?? (patch.assigneeUserId ? [patch.assigneeUserId] : []);
+  if (ids.length > 100 || new Set(ids).size !== ids.length || ids.some((id) => !id))
+    throw new HttpError(400, 'Assignees must be unique member ids (at most 100)');
+  for (const id of ids) {
+    const role = await getMembership(projectId, id);
+    if (!role || (await isProjectAgent(projectId, id)))
+      throw new HttpError(400, 'Assignee must be a human project member');
   }
   if (patch.delegateUserId) {
     if (!(await isProjectAgent(projectId, patch.delegateUserId)))
@@ -1147,7 +1195,10 @@ export async function createIssue(
   await assertIssueLabels(project.id, input.labelIds);
   // An issue created in a column enters it the same way a moved one does, so the
   // column's auto-assignee applies. An assignee sent with the create wins over it.
-  const assigneeUserId = input.assigneeUserId ?? (await columnAutoAssignee(input.columnId));
+  const assigneeUserId =
+    input.assigneeUserIds !== undefined
+      ? (input.assigneeUserIds[0] ?? null)
+      : (input.assigneeUserId ?? (await columnAutoAssignee(input.columnId)));
   const { id: issueId, createdAt } = await db.transaction(async (tx) => {
     if (input.parentId != null) {
       await lockIssueTree(tx, project.id);
@@ -1185,6 +1236,8 @@ export async function createIssue(
         position: Number(posRow.pos),
       })
       .returning({ id: issue.id, createdAt: issue.createdAt });
+    if (input.assigneeUserIds !== undefined)
+      await replaceAdditionalAssignees(tx, row.id, project.id, input.assigneeUserIds);
     return row;
   });
 
@@ -1209,12 +1262,12 @@ export async function createIssue(
   await queueStatusRuns([issueId], input.columnId, actorUserId);
   // An issue created already assigned to a member notifies them, the same as
   // assigning one later does.
-  if (created.assigneeUserId) {
+  for (const userId of created.assigneeUserIds) {
     await notifyIssueChange({
       projectId: project.id,
       issueId,
       actorUserId: actorUserId ?? null,
-      assignedUserId: created.assigneeUserId,
+      assignedUserId: userId,
     });
   }
   // A description written on creation reaches the people it mentions, the same as
@@ -1277,6 +1330,7 @@ export async function recordParentChange(
 }
 
 export interface IssuePatch {
+  assigneeUserIds?: string[];
   columnId?: number;
   position?: number;
   typeId?: number | null;
@@ -1336,7 +1390,9 @@ export async function updateIssue(
 
   // An assignee sent with the same move wins over the column's auto-assignee.
   const autoAssignee =
-    movedToColumnId !== null && patch.assigneeUserId === undefined
+    movedToColumnId !== null &&
+    patch.assigneeUserId === undefined &&
+    patch.assigneeUserIds === undefined
       ? await columnAutoAssignee(movedToColumnId)
       : null;
 
@@ -1347,7 +1403,8 @@ export async function updateIssue(
   if (patch.parentId !== undefined) set.parentId = patch.parentId;
   if (patch.initiativeId !== undefined) set.initiativeId = patch.initiativeId;
   if (patch.cycleId !== undefined) set.cycleId = patch.cycleId;
-  if (patch.assigneeUserId !== undefined) set.assigneeUserId = patch.assigneeUserId;
+  if (patch.assigneeUserIds !== undefined) set.assigneeUserId = patch.assigneeUserIds[0] ?? null;
+  else if (patch.assigneeUserId !== undefined) set.assigneeUserId = patch.assigneeUserId;
   else if (autoAssignee) set.assigneeUserId = autoAssignee;
   if (patch.delegateUserId !== undefined) set.delegateUserId = patch.delegateUserId;
   if (patch.title !== undefined) set.title = patch.title;
@@ -1362,18 +1419,26 @@ export async function updateIssue(
   const changed = Object.keys(set).length > 0;
   if (changed) {
     set.updatedAt = sql`now()` as unknown as Date;
-    const guard =
-      opts?.onlyIfColumnId == null
-        ? eq(issue.id, id)
-        : and(eq(issue.id, id), eq(issue.columnId, opts.onlyIfColumnId));
+    const guard = and(
+      eq(issue.id, id),
+      eq(issue.projectId, before.projectId),
+      opts?.onlyIfColumnId == null ? undefined : eq(issue.columnId, opts.onlyIfColumnId),
+    );
     const updated = await db.transaction(async (tx) => {
       if (patch.parentId != null) {
         await lockIssueTree(tx, before.projectId);
         await assertTreeLink(id, patch.parentId, tx);
       }
-      return tx.update(issue).set(set).where(guard).returning({ id: issue.id });
+      const rows = await tx.update(issue).set(set).where(guard).returning({ id: issue.id });
+      if (rows.length && (patch.assigneeUserIds !== undefined || patch.assigneeUserId === null))
+        await replaceAdditionalAssignees(tx, id, before.projectId, patch.assigneeUserIds ?? []);
+      return rows;
     });
-    if (updated.length === 0) return getIssue(id);
+    if (updated.length === 0) {
+      if ((await getIssueProjectId(id)) !== before.projectId)
+        throw new HttpError(409, 'The issue changed project; reload before editing');
+      return getIssue(id);
+    }
   }
   const after = await getIssue(id);
   if (after) {
@@ -1387,7 +1452,7 @@ export async function updateIssue(
     if (changed) {
       await emitIssueEvent('issue.updated', after, actor);
       // Granular events fire in addition to issue.updated when their field changed.
-      if (before.assigneeUserId !== after.assigneeUserId)
+      if (JSON.stringify(before.assigneeUserIds) !== JSON.stringify(after.assigneeUserIds))
         await emitIssueEvent('issue.assigned', after, actor);
       if (before.delegateUserId !== after.delegateUserId) await enqueueDelegateRun(after, actor);
       if (before.columnId !== after.columnId) {
@@ -1624,9 +1689,11 @@ export async function bulkArchiveIssues(
   projectId: number,
   ids: number[],
   actorUserId?: string | null,
+  archiveId?: number | null,
 ): Promise<number> {
+  await assertIssueArchive(projectId, archiveId);
   const valid = await issuesInProject(projectId, ids);
-  for (const id of valid) await archiveIssue(id, actorUserId);
+  for (const id of valid) await archiveIssue(id, actorUserId, archiveId);
   return valid.length;
 }
 

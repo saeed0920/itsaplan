@@ -9,7 +9,6 @@ import {
   type DateField,
   type ViewSettings,
   type WeekStart,
-  WEEK_STARTS,
 } from '@/utils/viewSettings';
 import { isCalendarField } from '@/utils/calendarFields';
 import { byKey } from '@/utils/messageKey';
@@ -20,6 +19,7 @@ import DisplaySettingsSelect from '@/components/layout/DisplaySettingsSelect';
 import DisplayToggleRow from '@/components/layout/DisplayToggleRow';
 
 const DATE_FIELDS: BuiltinDateField[] = ['dueDate', 'startDate'];
+const WEEK_STARTS = ['default', '6', '0', '1'] as const;
 
 export default function DisplayCalendarRows({
   settings,
@@ -94,12 +94,11 @@ export default function DisplayCalendarRows({
         </DisplaySettingsRow>
         <DisplaySettingsRow label={t('weekStartsOn')}>
           <DisplaySettingsSelect
-            value={String(settings.weekStart)}
-            onChange={(v) => onChange({ weekStart: Number(v) as WeekStart })}
-            options={WEEK_STARTS.map((value) => ({
-              value: String(value),
-              label: weekStart(String(value)),
-            }))}
+            value={settings.weekStart == null ? 'default' : String(settings.weekStart)}
+            onChange={(v) =>
+              onChange({ weekStart: v === 'default' ? null : (Number(v) as WeekStart) })
+            }
+            options={WEEK_STARTS.map((value) => ({ value, label: weekStart(value) }))}
           />
         </DisplaySettingsRow>
       </DisplaySection>

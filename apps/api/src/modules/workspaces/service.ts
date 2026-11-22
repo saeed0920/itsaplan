@@ -149,6 +149,7 @@ export async function listWorkspaces(userId: string) {
       name: workspace.name,
       color: workspace.color,
       teamCreation: workspace.teamCreation,
+      weekStart: workspace.weekStart,
       role: workspaceManager.role,
     })
     .from(workspace)
@@ -172,7 +173,12 @@ export async function listWorkspaces(userId: string) {
     .orderBy(asc(workspace.name), asc(workspace.id));
   return rows.map(({ teamCreation, ...row }) => {
     const role = row.role as WorkspaceRole | null;
-    return { ...row, role, canCreateTeam: mayCreateTeam(role, teamCreation) };
+    return {
+      ...row,
+      weekStart: row.weekStart as 0 | 1 | 6,
+      role,
+      canCreateTeam: mayCreateTeam(role, teamCreation),
+    };
   });
 }
 
@@ -185,6 +191,7 @@ export async function getWorkspace(workspaceId: number, role: WorkspaceRole) {
       color: workspace.color,
       teamCreation: workspace.teamCreation,
       maxConcurrentRuns: workspace.maxConcurrentRuns,
+      weekStart: workspace.weekStart,
       sharingEnabled: workspace.sharingEnabled,
       sharingTeamsOnly: workspace.sharingTeamsOnly,
     })
@@ -202,6 +209,7 @@ export async function getWorkspace(workspaceId: number, role: WorkspaceRole) {
   return {
     ...row,
     teamCreation: row.teamCreation as TeamCreation,
+    weekStart: row.weekStart as 0 | 1 | 6,
     maxConcurrentRunsCap: await runLimitCap(workspaceId),
     sharingAvailable,
     sharingTeams,
@@ -287,8 +295,8 @@ export type WorkspaceCreationBlock = 'restricted' | 'limit';
 
 // Whether a person may create a workspace, and if not, why: the instance keeps
 // workspaces to its owner, or they already own as many as one person may. An agent's bot
-// user is no person and creates none. No core route calls this or createOwnWorkspace;
-// an edition that lets a person own more workspaces mounts its route on them.
+// user is no person and creates none. The creation route and ownership transfer both
+// enforce this policy.
 export async function workspaceCreation(
   current: AuthUser,
   executor: DbExecutor = db,
@@ -330,6 +338,7 @@ export async function updateWorkspace(
   role: WorkspaceRole,
   patch: {
     name?: string;
+    weekStart?: number;
     color?: string | null;
     teamCreation?: TeamCreation;
     maxConcurrentRuns?: number;

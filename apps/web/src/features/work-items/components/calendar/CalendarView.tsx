@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { localeWeekStart } from '@/utils/dates';
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import { useTranslations } from 'next-intl';
 import type { Issue } from '@/lib/api/endpoints/issues';
@@ -28,6 +29,10 @@ export default function CalendarView({
 }: WorkItemsViewProps) {
   const t = useTranslations('workItems.calendar');
   const { can } = usePermissions();
+  const layout = {
+    ...settings,
+    weekStart: settings.weekStart ?? project.project.workspaceWeekStart ?? localeWeekStart(),
+  };
   // Any day of the visible month, the first visible day, or any day of the first
   // visible week.
   const [cursor, setCursor] = useState<Date>(() => new Date());
@@ -40,7 +45,7 @@ export default function CalendarView({
   const { activeIssue, ...dragHandlers } = useCalendarDrop({
     project,
     schedule,
-    weekStart: settings.weekStart,
+    weekStart: layout.weekStart,
   });
 
   const today = new Date();
@@ -49,7 +54,7 @@ export default function CalendarView({
   const dot = (issue: Issue) => issueColor(issue, maps);
   const weekdayNames = WEEKDAY_KEYS.map((key) => t(`weekdays.${key}`));
   const { byDay, unscheduled } = bucketByDay(project.issues, schedule.dayOf);
-  const days = visibleDays(cursor, settings);
+  const days = visibleDays(cursor, layout);
   const grid = {
     project,
     today,
@@ -91,7 +96,7 @@ export default function CalendarView({
             mode={mode}
             fullWeek={isFullWeek(settings)}
             days={days}
-            weekStart={settings.weekStart}
+            weekStart={layout.weekStart}
             onCursorChange={setCursor}
           />
           {mode === 'month' && (
@@ -101,7 +106,7 @@ export default function CalendarView({
           {mode === 'byWeek' && (
             <CalendarWeekGrid
               {...grid}
-              weekStart={settings.weekStart}
+              weekStart={layout.weekStart}
               splitByDay={settings.calendarSplitByDay}
             />
           )}

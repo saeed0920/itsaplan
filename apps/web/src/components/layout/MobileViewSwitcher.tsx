@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronDown, Layers, Plus } from 'lucide-react';
+import { Archive, Check, ChevronDown, Layers, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { View } from '@/lib/api/endpoints/views';
 import { cn } from '@/lib/utils';
@@ -22,12 +22,14 @@ import MobileViewItem from '@/components/layout/MobileViewItem';
 export default function MobileViewSwitcher({
   views,
   activeViewId,
+  archiveActive = false,
   canCreate,
   onSelect,
   onNewView,
 }: {
   views: View[];
   activeViewId: number | null;
+  archiveActive?: boolean;
   canCreate: boolean;
   onSelect: (id: number | null) => void;
   onNewView: () => void;
@@ -35,6 +37,9 @@ export default function MobileViewSwitcher({
   const t = useTranslations('views');
   const [open, setOpen] = useState(false);
   const active = activeViewId != null ? (views.find((v) => v.id === activeViewId) ?? null) : null;
+  const DefaultIcon = archiveActive ? Archive : Layers;
+  const label = archiveActive ? t('archive') : (active?.name ?? t('all'));
+  const allActive = activeViewId === null && !archiveActive;
   const hidden = views.filter((v) => v.hidden);
 
   function selectView(id: number) {
@@ -50,12 +55,12 @@ export default function MobileViewSwitcher({
           title={t('switchView')}
           className="flex h-8 min-w-0 items-center gap-1.5 rounded-md border px-3 text-sm whitespace-nowrap transition-colors hover:bg-accent"
         >
-          {active ? (
+          {active && !archiveActive ? (
             <ViewIcon name={active.icon} className="size-4 shrink-0" />
           ) : (
-            <Layers className="size-4 shrink-0" />
+            <DefaultIcon className="size-4 shrink-0" />
           )}
-          <span className="truncate font-medium">{active ? active.name : t('all')}</span>
+          <span className="truncate font-medium">{label}</span>
           <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
         </button>
       </PopoverTrigger>
@@ -72,11 +77,11 @@ export default function MobileViewSwitcher({
                   onSelect(null);
                   setOpen(false);
                 }}
-                className={cn(activeViewId === null && 'bg-accent/50')}
+                className={cn(allActive && 'bg-accent/50')}
               >
                 <Layers className="size-4" />
                 <span className="min-w-0 flex-1 truncate">{t('all')}</span>
-                {activeViewId === null && <Check className="size-4 shrink-0" />}
+                {allActive && <Check className="size-4 shrink-0" />}
               </CommandItem>
               {views
                 .filter((v) => !v.hidden)
@@ -84,7 +89,7 @@ export default function MobileViewSwitcher({
                   <MobileViewItem
                     key={v.id}
                     view={v}
-                    active={v.id === activeViewId}
+                    active={!archiveActive && v.id === activeViewId}
                     onSelect={selectView}
                   />
                 ))}

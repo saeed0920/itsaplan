@@ -1,4 +1,5 @@
 import type { StateType } from '@/lib/api/endpoints/columns';
+import type { CalendarSystem } from '@/lib/api/endpoints/userPreferences';
 import { DEFAULT_LOCALE } from '@/i18n/locales';
 
 // Date helpers shared by the project views. Kept separate from project grouping so
@@ -19,13 +20,18 @@ export function getDisplayLocale(): string {
   return displayLocale;
 }
 
-export function getIntlLocale(): string {
-  return displayLocale === 'fa' ? 'fa-IR-u-ca-persian' : displayLocale;
+let displayCalendar: CalendarSystem | undefined;
+
+export function setDisplayCalendar(calendar?: CalendarSystem): void {
+  displayCalendar = calendar;
 }
 
-// The display language's calendar, as an Intl `calendar` option.
-export function calendarSystem(): 'persian' | 'gregory' {
-  return displayLocale === 'fa' ? 'persian' : 'gregory';
+export function getIntlLocale(): string {
+  return new Intl.Locale(displayLocale, { calendar: calendarSystem() }).toString();
+}
+
+export function calendarSystem(): CalendarSystem {
+  return displayCalendar ?? (displayLocale === 'fa' ? 'persian' : 'gregory');
 }
 
 // The display language's first day of the week, as a `Date.getDay()` number. The
@@ -103,7 +109,11 @@ export function formatDate(value: string): string {
 // The year a moment falls in, in the display zone. A fixed locale: the value is
 // compared, never shown.
 function zonedYear(date: Date): string {
-  return date.toLocaleDateString('en-US', { year: 'numeric', ...zoneOption() });
+  return date.toLocaleDateString('en-US', {
+    calendar: calendarSystem(),
+    year: 'numeric',
+    ...zoneOption(),
+  });
 }
 
 // "Jul 2, 14:05" for a moment in time, rendered in the user's zone. A moment from

@@ -40,6 +40,7 @@ export interface Issue {
   // The cycle this issue is planned into, expanded to id + name for rendering, or
   // null. Set through updateIssue by cycleId.
   cycle: CycleRef | null;
+  assigneeUserIds?: string[];
   assigneeUserId: string | null;
   delegateUserId: string | null;
   columnId: number;
@@ -64,6 +65,7 @@ export interface Issue {
   // When the issue was archived (hidden from the board but kept), or null when it
   // is active. Set by the archive action or the worker's auto-archive sweep.
   archivedAt: string | null;
+  archiveId?: number | null;
   // When the issue entered its current column (or createdAt if it never moved).
   // Drives the "time in current status" badge.
   statusSince: string;
@@ -82,6 +84,8 @@ export interface Issue {
 // A light search result from GET /projects/:key/issues/search: enough to list and
 // open a match, without the full issue's description or field values.
 export interface IssueSearchHit {
+  columnName?: string | null;
+  cycleName?: string | null;
   id: number;
   sequenceNumber: number;
   identifier: string;
@@ -91,6 +95,7 @@ export interface IssueSearchHit {
   initiativeId: number | null;
   cycleId: number | null;
   parentId: number | null;
+  assigneeUserIds?: string[];
   assigneeUserId: string | null;
   delegateUserId: string | null;
   priority: string | null;
@@ -257,6 +262,7 @@ export interface IssueWithWatchers extends IssueRelations {
 }
 
 export interface NewIssueInput {
+  assigneeUserIds?: string[];
   typeId?: number | null;
   initiativeId?: number | null;
   cycleId?: number | null;
@@ -277,6 +283,7 @@ export interface NewIssueInput {
 // The fields a bulk update can set on many issues at once (the board-relevant
 // subset of IssuePatch: no title/description/position).
 export interface BulkIssuePatch {
+  assigneeUserIds?: string[];
   columnId?: number;
   typeId?: number | null;
   initiativeId?: number | null;
@@ -291,6 +298,7 @@ export interface BulkIssuePatch {
 }
 
 export interface IssuePatch {
+  assigneeUserIds?: string[];
   columnId?: number;
   position?: number;
   typeId?: number | null;
@@ -360,10 +368,11 @@ export const bulkArchiveIssues = (
   projectKey: string,
   ids: number[],
   subtasks?: SubtaskDisposition,
+  archiveId?: number | null,
 ) =>
   request<{ archived: number }>(`/projects/${projectKey}/issues/bulk/archive`, {
     method: 'POST',
-    body: JSON.stringify({ ids, ...subtasks }),
+    body: JSON.stringify({ ids, ...subtasks, archiveId }),
   });
 
 export const bulkDeleteIssues = (
@@ -377,12 +386,19 @@ export const bulkDeleteIssues = (
   });
 
 // Archive/restore: hide an issue from the board (kept, restorable) or bring it
-// back. The board excludes archived issues; the archive settings section lists them.
-export const archiveIssue = (id: number, subtasks?: SubtaskDisposition) =>
+// back. The board excludes archived issues; the Archive tab lists them.
+export const archiveIssue = (
+  id: number,
+  subtasks?: SubtaskDisposition,
+  archiveId?: number | null,
+) =>
   request<Issue>(`/issues/${id}/archive`, {
     method: 'POST',
-    body: JSON.stringify(subtasks ?? {}),
+    body: JSON.stringify({ ...subtasks, archiveId }),
   });
+
+export const listArchivedIssues = (projectKey: string) =>
+  request<Issue[]>(`/projects/${projectKey}/issues/archived`);
 
 export const restoreIssue = (id: number) =>
   request<Issue>(`/issues/${id}/restore`, { method: 'POST' });

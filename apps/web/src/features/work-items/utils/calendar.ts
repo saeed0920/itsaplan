@@ -62,7 +62,9 @@ export const isFullWeek = (layout: Pick<ViewSettings, 'calendarMode' | 'calendar
 // whatever the month's length.
 export function visibleDays(
   cursor: Date,
-  layout: Pick<ViewSettings, 'calendarMode' | 'calendarDays' | 'calendarWeeks' | 'weekStart'>,
+  layout: Pick<ViewSettings, 'calendarMode' | 'calendarDays' | 'calendarWeeks'> & {
+    weekStart: WeekStart;
+  },
 ): Date[] {
   const weekStartsOn = layout.weekStart;
   const run = (first: Date, count: number) =>

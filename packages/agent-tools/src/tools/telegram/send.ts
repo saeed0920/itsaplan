@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { telegramFetch } from '@repo/net/telegram';
 import type { CustomToolEntry } from '../../types';
 import { jsonOrThrow } from '../../http';
 
@@ -18,7 +19,7 @@ export const telegramSend: CustomToolEntry = {
   execute: async (credential, input) => {
     const chatId = input.chatId ? String(input.chatId) : String(credential.defaultChatId ?? '');
     if (!chatId) throw new Error('No chatId given and no default chat configured.');
-    const res = await fetch(
+    const res = await telegramFetch(
       `https://api.telegram.org/bot${String(credential.botToken)}/sendMessage`,
       {
         method: 'POST',
@@ -26,7 +27,9 @@ export const telegramSend: CustomToolEntry = {
         body: JSON.stringify({ chat_id: chatId, text: String(input.text) }),
       },
     );
-    const data = (await jsonOrThrow(res, 'Telegram send')) as { result?: { message_id?: number } };
+    const data = (await jsonOrThrow(res, 'Telegram send')) as {
+      result?: { message_id?: number };
+    };
     return { sent: true, messageId: data.result?.message_id ?? null };
   },
 };

@@ -29,6 +29,7 @@ export interface Project {
   // scoped to this project needs both.
   mcpEnabled: boolean;
   teamMcpEnabled: boolean;
+  workspaceWeekStart?: 0 | 1 | 6;
   // The optional sections, toggled by an owner in Settings -> General. Read through
   // useProjectFeatures, which hides the navigation and the section itself.
   initiativesEnabled: boolean;

@@ -5,7 +5,6 @@
 // back to per-view defaults, so the store grows new options without a migration.
 
 import type { CustomField } from '@/lib/api/endpoints/customFields';
-import { localeWeekStart } from '@/utils/dates';
 import type { ProjectFeatureSet } from '@/utils/projectFeatures';
 import type { Sort, WorkItemsView } from '@/utils/viewTypes';
 
@@ -118,9 +117,8 @@ export type TimelineScale = 'week' | 'month' | 'quarter';
 export type BuiltinDateField = 'dueDate' | 'startDate';
 export type DateField = BuiltinDateField | CustomFieldKey;
 
-// date-fns weekStartsOn: 6 Saturday, 0 Sunday, 1 Monday.
-export type WeekStart = 6 | 0 | 1;
-export const WEEK_STARTS: WeekStart[] = [6, 0, 1];
+// date-fns weekStartsOn: 0 Sunday, 1 Monday, 6 Saturday.
+export type WeekStart = 0 | 1 | 6;
 
 // How the Calendar lays out its days: a month grid, a column per day, or a column
 // per week.
@@ -166,7 +164,7 @@ export interface ViewSettings {
   // or lists the week's issues in date order.
   calendarSplitByDay: boolean;
   calendarUnscheduledCollapsed: boolean;
-  weekStart: WeekStart;
+  weekStart: WeekStart | null;
   // Group keys collapsed into the "Hidden columns" panel on the flat project (see
   // KanbanBoard). Keys are namespaced by grouping field (c<id>/a<id>/p<v>/t<id>/
   // f<fieldId>u<userId>), so a set from one grouping never matches another. Empty
@@ -186,9 +184,7 @@ export interface ViewSettings {
 
 const DEFAULT_SORT: Sort = { field: 'manual', dir: 'asc' };
 
-// Options shared by every view; group, subgroup and properties differ per view, the
-// week start per language.
-const COMMON: Omit<ViewSettings, 'group' | 'subgroup' | 'properties' | 'sort' | 'weekStart'> = {
+const COMMON: Omit<ViewSettings, 'group' | 'subgroup' | 'properties' | 'sort'> = {
   showEmptyGroups: true,
   showLinks: false,
   showSubtasks: true,
@@ -202,6 +198,7 @@ const COMMON: Omit<ViewSettings, 'group' | 'subgroup' | 'properties' | 'sort' | 
   calendarWeeks: CALENDAR_MAX_WEEKS,
   calendarSplitByDay: true,
   calendarUnscheduledCollapsed: false,
+  weekStart: null,
   hiddenGroups: [],
   collapsedGroups: [],
   pinnedGroup: null,
@@ -230,7 +227,6 @@ export function defaultViewSettings(view: WorkItemsView): ViewSettings {
   const group: GroupField = view === 'calendar' ? 'none' : 'status';
   return {
     ...COMMON,
-    weekStart: localeWeekStart(),
     sort: { ...DEFAULT_SORT },
     group,
     subgroup: 'none',
@@ -353,9 +349,8 @@ export function normalizeViewSettings(
       typeof s.calendarUnscheduledCollapsed === 'boolean'
         ? s.calendarUnscheduledCollapsed
         : d.calendarUnscheduledCollapsed,
-    weekStart: WEEK_STARTS.includes(s.weekStart as WeekStart)
-      ? (s.weekStart as WeekStart)
-      : d.weekStart,
+    weekStart:
+      s.weekStart === 0 || s.weekStart === 1 || s.weekStart === 6 ? s.weekStart : d.weekStart,
     hiddenGroups: Array.isArray(s.hiddenGroups)
       ? (s.hiddenGroups as unknown[]).filter((x): x is string => typeof x === 'string')
       : d.hiddenGroups,

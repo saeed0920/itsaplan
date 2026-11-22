@@ -15,6 +15,7 @@ import { useDndSensors, useDroppedOrder } from '@/lib/dnd';
 import { useShell } from '@/context/shellContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { movedInRow } from '@/services/views.service';
+import ArchiveViewTab from './ArchiveViewTab';
 import AllViewTab, { ALL_DROP_ID } from '@/components/layout/AllViewTab';
 import HiddenViewsMenu from '@/components/layout/HiddenViewsMenu';
 import MobileViewSwitcher from '@/components/layout/MobileViewSwitcher';
@@ -47,6 +48,7 @@ export default function ViewTabs({
   onPinProjectOrder,
   onToggleFilter,
   displayControl,
+  archive,
 }: {
   views: View[];
   projectKey: string;
@@ -63,6 +65,7 @@ export default function ViewTabs({
   onPinProjectOrder: () => void;
   onToggleFilter: () => void;
   displayControl: ReactNode;
+  archive?: { active: boolean; count?: number; onSelect: () => void };
 }) {
   const t = useTranslations('views');
   const { can, isMember } = usePermissions();
@@ -119,10 +122,12 @@ export default function ViewTabs({
         <MobileViewSwitcher
           views={shown}
           activeViewId={activeViewId}
-          canCreate={canCreateView}
+          archiveActive={archive?.active}
+          canCreate={canCreateView && !archive?.active}
           onSelect={onSelect}
           onNewView={onNewView}
         />
+        {archive && <ArchiveViewTab {...archive} />}
       </div>
 
       {/* Desktop: the scrollable, reorderable tab strip. */}
@@ -135,7 +140,7 @@ export default function ViewTabs({
           onDragEnd={handleDragEnd}
         >
           <AllViewTab
-            active={activeViewId === null}
+            active={activeViewId === null && !archive?.active}
             dragging={activeId != null}
             onClick={() => onSelect(null)}
           />
@@ -146,15 +151,15 @@ export default function ViewTabs({
                 key={view.id}
                 view={view}
                 projectKey={projectKey}
-                active={activeViewId === view.id}
-                canEdit={view.isPrivate || canEditView}
+                active={activeViewId === view.id && !archive?.active}
+                canEdit={!archive?.active && (view.isPrivate || canEditView)}
                 canShare={canShareView}
                 canDelete={view.isPrivate || canDeleteView}
                 canPublish={view.isPrivate && canPublishView}
                 onSelect={() => onSelect(view.id)}
                 onEdit={() => onEdit(view)}
                 onDelete={() => onDelete(view)}
-                canDuplicate={canCreateView}
+                canDuplicate={!archive?.active && canCreateView}
                 onDuplicate={() => onDuplicate(view)}
                 onHide={() => onHide(view)}
               />
@@ -184,7 +189,8 @@ export default function ViewTabs({
             onShow={onShow}
           />
         )}
-        {canCreateView && (
+        {archive && <ArchiveViewTab {...archive} />}
+        {canCreateView && !archive?.active && (
           <button
             type="button"
             onClick={onNewView}
@@ -195,11 +201,13 @@ export default function ViewTabs({
             {t('newView')}
           </button>
         )}
-        {tabRowMenu}
+        {!archive?.active && tabRowMenu}
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 pl-2">
-        <ToolbarIconButton icon={FilterIcon} title={t('filter')} onClick={onToggleFilter} />
+        {!archive?.active && (
+          <ToolbarIconButton icon={FilterIcon} title={t('filter')} onClick={onToggleFilter} />
+        )}
         {displayControl}
       </div>
     </div>

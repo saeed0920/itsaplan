@@ -62,7 +62,10 @@ export function useTeam(teamId: number): Team | null {
 // What the caller may do with the resources the team holds. Read on its own because
 // resolving it for a plain member costs a query per team, which the list avoids.
 export function useTeamQuery(teamId: number) {
-  return useQuery({ queryKey: qk.team(teamId), queryFn: () => getTeam(teamId) });
+  return useQuery({
+    queryKey: qk.team(teamId),
+    queryFn: () => getTeam(teamId),
+  });
 }
 
 // One page of a team's members. The search and the window run on the server, so the
@@ -116,9 +119,16 @@ export function useTeamProjectMembersQuery(
   pageSize = DEFAULT_PAGE_SIZE,
 ) {
   return useInfiniteQuery({
-    queryKey: qk.teamProjectMembers(teamId, projectId, { ...filters, pageSize }),
+    queryKey: qk.teamProjectMembers(teamId, projectId, {
+      ...filters,
+      pageSize,
+    }),
     queryFn: ({ pageParam }) =>
-      listTeamProjectMembers(teamId, projectId, { ...filters, page: pageParam, pageSize }),
+      listTeamProjectMembers(teamId, projectId, {
+        ...filters,
+        page: pageParam,
+        pageSize,
+      }),
     initialPageParam: 1,
     getNextPageParam: nextPageParam,
   });
@@ -261,15 +271,18 @@ export function useTeamInvitesQuery(teamId: number, enabled = true) {
 }
 
 export function useInviteSearchQuery() {
-  return useQuery({ queryKey: qk.inviteSearch, queryFn: () => getInviteSearch() });
+  return useQuery({
+    queryKey: qk.inviteSearch,
+    queryFn: () => getInviteSearch(),
+  });
 }
 
-// The API answers only a search of at least 2 characters.
+// Empty search offers workspace people; longer searches may include instance accounts.
 export function useInviteCandidatesQuery(teamId: number, search: string) {
   return useQuery({
     queryKey: qk.inviteCandidates(teamId, search),
     queryFn: () => listInviteCandidates(teamId, search),
-    enabled: search.length >= 2,
+
     placeholderData: keepPreviousData,
   });
 }
@@ -280,12 +293,13 @@ export function useCreateTeamInvite(teamId: number) {
   const t = useTranslations('members.invites');
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { email: string; role: InviteTeamRole }) => createTeamInvite(teamId, input),
+    mutationFn: (input: { email?: string; role: InviteTeamRole }) =>
+      createTeamInvite(teamId, input),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: qk.teamInvites(teamId) });
       if (result.emailQueued) toast.success(t('emailQueued'));
       else if (result.emailFailed) toast.error(t('emailFailed'));
-      else toast.info(t('emailUnavailable'));
+      else if (result.email != null) toast.info(t('emailUnavailable'));
     },
     meta: { suppressErrorToast: true },
   });

@@ -1,6 +1,6 @@
 {
-  "id": "bbc3c1ec-0636-4a8a-8460-f41a876812fa",
-  "prevId": "7f33005e-9ee1-4468-bfd9-1130c8ab597e",
+  "id": "63e76370-352a-4c81-ae27-c6fb20d5e746",
+  "prevId": "c55675e7-554d-442a-bee6-ced5e2d72f32",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -5045,18 +5045,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "source_project_name": {
-          "name": "source_project_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_project_url": {
-          "name": "source_project_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "phase": {
           "name": "phase",
           "type": "text",
@@ -5372,11 +5360,11 @@
       "checkConstraints": {
         "import_record_source_entity_type_check": {
           "name": "import_record_source_entity_type_check",
-          "value": "\"import_record\".\"source_entity_type\" IN ('issue', 'comment', 'label', 'state', 'cycle', 'attachment', 'checklist', 'custom_field', 'issue_type', 'initiative', 'worklog')"
+          "value": "\"import_record\".\"source_entity_type\" IN ('issue', 'comment', 'label', 'state', 'cycle', 'attachment', 'checklist', 'custom_field')"
         },
         "import_record_local_entity_type_check": {
           "name": "import_record_local_entity_type_check",
-          "value": "\"import_record\".\"local_entity_type\" IS NULL OR \"import_record\".\"local_entity_type\" IN ('issue', 'comment', 'label', 'state', 'cycle', 'attachment', 'checklist', 'custom_field', 'issue_type', 'initiative', 'worklog', 'initiative_attachment')"
+          "value": "\"import_record\".\"local_entity_type\" IS NULL OR \"import_record\".\"local_entity_type\" IN ('issue', 'comment', 'label', 'state', 'cycle', 'attachment', 'checklist', 'custom_field')"
         }
       },
       "isRLSEnabled": false
@@ -6386,6 +6374,102 @@
           "value": "(\"issue_activity\".\"issue_id\" IS NOT NULL) <> (\"issue_activity\".\"initiative_id\" IS NOT NULL)"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.issue_assignee": {
+      "name": "issue_assignee",
+      "schema": "",
+      "columns": {
+        "issue_id": {
+          "name": "issue_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "issue_assignee_member_idx": {
+          "name": "issue_assignee_member_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "issue_assignee_issue_id_issue_id_fk": {
+          "name": "issue_assignee_issue_id_issue_id_fk",
+          "tableFrom": "issue_assignee",
+          "tableTo": "issue",
+          "columnsFrom": [
+            "issue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "issue_assignee_project_id_user_id_project_member_project_id_user_id_fk": {
+          "name": "issue_assignee_project_id_user_id_project_member_project_id_user_id_fk",
+          "tableFrom": "issue_assignee",
+          "tableTo": "project_member",
+          "columnsFrom": [
+            "project_id",
+            "user_id"
+          ],
+          "columnsTo": [
+            "project_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "issue_assignee_issue_id_user_id_pk": {
+          "name": "issue_assignee_issue_id_user_id_pk",
+          "columns": [
+            "issue_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.issue_attachment": {
@@ -12094,6 +12178,13 @@
           "notNull": true,
           "default": "'UTC'"
         },
+        "calendar": {
+          "name": "calendar",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'gregory'"
+        },
         "locale": {
           "name": "locale",
           "type": "text",
@@ -12223,6 +12314,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "user_preference_calendar_check": {
+          "name": "user_preference_calendar_check",
+          "value": "\"user_preference\".\"calendar\" IN ('gregory', 'persian')"
+        },
         "user_preference_theme_check": {
           "name": "user_preference_theme_check",
           "value": "\"user_preference\".\"theme\" IN ('light', 'dark', 'system')"
@@ -12614,6 +12709,13 @@
           "notNull": true,
           "default": "'owner'"
         },
+        "week_start": {
+          "name": "week_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "max_concurrent_runs": {
           "name": "max_concurrent_runs",
           "type": "integer",
@@ -12652,6 +12754,10 @@
         "workspace_team_creation_check": {
           "name": "workspace_team_creation_check",
           "value": "\"workspace\".\"team_creation\" IN ('owner', 'managers', 'members')"
+        },
+        "workspace_week_start_check": {
+          "name": "workspace_week_start_check",
+          "value": "\"workspace\".\"week_start\" IN (0, 1, 6)"
         },
         "workspace_max_concurrent_runs_check": {
           "name": "workspace_max_concurrent_runs_check",

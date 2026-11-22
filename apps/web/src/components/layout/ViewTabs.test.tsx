@@ -79,7 +79,7 @@ const editor = {
   },
 } as unknown as ShellContext;
 
-async function render(activeViewId: number, shell = reader) {
+async function render(activeViewId: number | null, shell = reader, archive = false) {
   const { default: ViewTabs } = await import('./ViewTabs');
   await act(async () =>
     root.render(
@@ -102,6 +102,9 @@ async function render(activeViewId: number, shell = reader) {
               onPinProjectOrder={() => {}}
               onToggleFilter={() => {}}
               displayControl={null}
+              archive={
+                archive ? { active: true, count: 3, onSelect: () => selected.push(-1) } : undefined
+              }
             />
           </ShellCtx.Provider>
         </NextIntlClientProvider>
@@ -185,6 +188,30 @@ afterEach(async () => {
 });
 
 describe('ViewTabs', () => {
+  it('shows the fixed archive tab on desktop and mobile without marking All active', async () => {
+    await render(null, reader, true);
+    const buttons = [
+      ...document.querySelectorAll<HTMLButtonElement>('button[aria-current="page"]'),
+    ];
+    assert.equal(buttons.length, 2);
+    assert.ok(
+      buttons.every(
+        (button) =>
+          button.textContent?.includes(views.archive) && button.textContent?.includes('3'),
+      ),
+    );
+    assert.equal(document.querySelector(`[title="${views.filter}"]`), null);
+    const picker = document.querySelector<HTMLElement>(`[title="${views.switchView}"]`)!;
+    assert.equal(picker.textContent?.trim(), views.archive);
+    await act(async () => picker.click());
+    const all = pickerItems().find((item) => item.textContent?.trim() === views.all)!;
+    assert.equal(all.querySelector('svg.lucide-check'), null);
+    await act(async () => all.click());
+    assert.deepEqual(selected, [null]);
+    selected = [];
+    await act(async () => buttons[0].click());
+    assert.deepEqual(selected, [-1]);
+  });
   it('offers no new view to a member who cannot read views, whose save would be refused', async () => {
     const blind = {
       project: {

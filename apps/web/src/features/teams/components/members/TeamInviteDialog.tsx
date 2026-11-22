@@ -16,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useCreateTeamInvite, useInviteSearchQuery } from '@/services/teams.service';
+import { useCreateTeamInvite } from '@/services/teams.service';
 import TeamInviteSuggestions from './TeamInviteSuggestions';
+import TeamInviteLink from './TeamInviteLink';
 
 // The message for each refusal the API can answer with; any other error falls back
 // to 'refused'.
@@ -50,7 +51,6 @@ export default function TeamInviteDialog({
   const [role, setRole] = useState<InviteTeamRole>('member');
   const [refusal, setRefusal] = useState<string | null>(null);
   const createInvite = useCreateTeamInvite(teamId);
-  const searchEnabled = useInviteSearchQuery().data?.enabled ?? false;
 
   const ranks: InviteTeamRole[] =
     teamRole === 'owner' ? ['member', 'manager', 'owner'] : ['member'];
@@ -82,11 +82,18 @@ export default function TeamInviteDialog({
       onClose={onClose}
       wide
     >
+      <TeamInviteLink teamId={teamId} />
       <form onSubmit={submit} className="space-y-6 py-1">
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">{t('emailLabel')}</p>
+            <label
+              htmlFor="team-invite-email"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              {t('emailLabel')}
+            </label>
             <Input
+              id="team-invite-email"
               type="email"
               placeholder={t('emailPlaceholder')}
               autoComplete="off"
@@ -100,7 +107,7 @@ export default function TeamInviteDialog({
               disabled={createInvite.isPending}
             />
             {refusal && <p className="text-xs text-destructive">{refusal}</p>}
-            {searchEnabled && !createInvite.isPending && (
+            {!createInvite.isPending && (
               <TeamInviteSuggestions
                 teamId={teamId}
                 address={address}
@@ -113,13 +120,15 @@ export default function TeamInviteDialog({
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">{t('roleLabel')}</p>
+            <label htmlFor="team-invite-role" className="text-xs font-medium text-muted-foreground">
+              {t('roleLabel')}
+            </label>
             <Select
               value={role}
               onValueChange={(value) => setRole(value as InviteTeamRole)}
               disabled={createInvite.isPending || ranks.length === 1}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="team-invite-role" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

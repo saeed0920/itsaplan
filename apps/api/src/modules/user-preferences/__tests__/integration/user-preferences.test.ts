@@ -28,6 +28,7 @@ describe('user preferences', () => {
     expect(res.status).toBe(200);
     expect(res.data).toEqual({
       timezone: 'UTC',
+      calendar: 'gregory',
       locale: 'en',
       theme: 'system',
       palette: 'default',
@@ -92,6 +93,7 @@ describe('user preferences', () => {
     const stored = await client.account.preferences.get();
     expect(stored.data).toEqual({
       timezone: 'Europe/Berlin',
+      calendar: 'gregory',
       locale: 'uk',
       theme: 'dark',
       palette: 'nord',
@@ -118,6 +120,29 @@ describe('user preferences', () => {
 
     expect(res.status).toBe(200);
     expect(res.data).toMatchObject({ timezone: 'Europe/Berlin', theme: 'light' });
+  });
+
+  it('saves a personal calendar independently of language and preserves it on partial updates', async () => {
+    const first = await signUpTestUser();
+    const second = await signUpTestUser();
+    const client = authedApi(first.cookie);
+    expect(
+      (await client.account.preferences.patch({ calendar: 'persian', locale: 'en' })).status,
+    ).toBe(200);
+    await client.account.preferences.patch({ theme: 'dark' });
+    expect((await client.account.preferences.get()).data).toMatchObject({
+      calendar: 'persian',
+      locale: 'en',
+    });
+    expect((await authedApi(second.cookie).account.preferences.get()).data?.calendar).toBe(
+      'gregory',
+    );
+    expect(
+      (await client.account.preferences.patch({ calendar: 'islamic' as 'persian' })).status,
+    ).toBe(400);
+    expect((await client.account.preferences.patch({ calendar: 'gregory' })).data?.calendar).toBe(
+      'gregory',
+    );
   });
 
   it('keeps the custom theme when another palette is picked', async () => {

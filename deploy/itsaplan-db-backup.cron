@@ -1,0 +1,5 @@
+# Root only. Hourly due check; full backup at most once per 72h after last success.
+# A failed backup remains due; incomplete directories are never pruned automatically.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 * * * * root /usr/bin/python3 /usr/local/libexec/itsaplan-backup-db.py --if-due >> /var/log/itsaplan-db-backup.log 2>&1

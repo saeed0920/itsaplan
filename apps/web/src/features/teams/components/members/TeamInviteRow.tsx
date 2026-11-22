@@ -77,16 +77,18 @@ export default function TeamInviteRow({
           )
         ) : (
           <>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-              disabled={resending}
-              onClick={() => onResend(invite)}
-            >
-              <Mail className="size-3.5" />
-              {resending ? t('resendingEmail') : t('resendEmail')}
-            </Button>
+            {invite.email != null && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                disabled={resending}
+                onClick={() => onResend(invite)}
+              >
+                <Mail className="size-3.5" />
+                {resending ? t('resendingEmail') : t('resendEmail')}
+              </Button>
+            )}
             {invite.token && (
               <Button
                 variant="ghost"

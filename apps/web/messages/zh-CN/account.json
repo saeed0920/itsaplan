@@ -141,6 +141,12 @@
     "language": "语言",
     "languageDescription": "应用界面、邮件和 Telegram 机器人的语言。",
     "timezone": "时区",
+    "calendar": "Calendar system",
+    "calendarDescription": "Calendar for displaying and selecting dates, independent of interface language.",
+    "calendarOptions": {
+      "gregory": "Gregorian",
+      "persian": "Persian (Solar Hijri)"
+    },
     "timezoneDescription": "应用中的所有日期和时间都按此时区显示。",
     "timezonePlaceholder": "选择时区",
     "timezoneEmpty": "未找到时区。",

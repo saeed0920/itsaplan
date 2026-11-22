@@ -1,6 +1,6 @@
 import { useFormatter, useTranslations } from 'next-intl';
+import { useCalendar } from '@/hooks/useCalendar';
 import { colorDot } from '@/components/common/fields/colorDot';
-import { calendarSystem } from '@/utils/dates';
 import { byKey } from '@/utils/messageKey';
 import type { ResolvedLinkPreview } from './resolveLinkPreview';
 
@@ -9,6 +9,7 @@ export default function EditorLinkPreviewDetails({ preview }: { preview: Resolve
   const filters = useTranslations('filters');
   const display = useTranslations('display');
   const format = useFormatter();
+  const { calendar } = useCalendar();
   const updated = preview.updatedAt ? new Date(preview.updatedAt) : null;
   return (
     <div className="space-y-1.5 text-xs text-muted-foreground">
@@ -43,7 +44,7 @@ export default function EditorLinkPreviewDetails({ preview }: { preview: Resolve
       {updated && Number.isFinite(updated.getTime()) && (
         <p>
           {t('previewUpdated', {
-            date: format.dateTime(updated, { dateStyle: 'medium', calendar: calendarSystem() }),
+            date: format.dateTime(updated, { dateStyle: 'medium', calendar }),
           })}
         </p>
       )}

@@ -96,6 +96,16 @@
     "permissions": "권한"
   },
   "invite": {
+    "sharedLink": "Shareable team link",
+    "sharedLinkHint": "Any signed-in account with this link can join as a member. Forward only to people you trust. Expires within 7 days; revoke it from pending invites.",
+    "createLink": "Create invite link",
+    "creatingLink": "Creating…",
+    "linkError": "Could not create invite link.",
+    "copyError": "Could not copy. Select the link and copy it manually.",
+    "workspacePeople": "Workspace people",
+    "loadingPeople": "Loading workspace people…",
+    "retryPeople": "Retry loading people",
+    "noPeople": "No matching workspace people. Enter an email or share an invite link.",
     "action": "팀에 초대",
     "title": "팀에 초대",
     "emailLabel": "이메일",
@@ -776,6 +786,10 @@
     "projectToggleAria": "{project}의 MCP 접근 전환"
   },
   "workspace": {
+    "weekStart": {
+      "title": "First day of week",
+      "description": "Week start for date pickers and default calendar views in this workspace’s projects."
+    },
     "rail": "워크스페이스",
     "create": "새 워크스페이스",
     "createUnavailableTitle": "워크스페이스 추가",

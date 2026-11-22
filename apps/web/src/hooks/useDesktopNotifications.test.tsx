@@ -18,6 +18,7 @@ const replacedGlobals = [
   'navigator',
   'localStorage',
   'Notification',
+  'Audio',
   'Event',
   'fetch',
   'setInterval',
@@ -41,6 +42,8 @@ let pushed: string[];
 let focused: boolean;
 let hidden: boolean;
 let permission: NotificationPermission;
+let sounds: number;
+let audioBlocked: boolean;
 let intervals: Map<number, () => void>;
 // Whether the page under test is an installed app window (display-mode: standalone).
 let appWindow: boolean;
@@ -166,6 +169,8 @@ async function render() {
     ),
   );
   await settle();
+  await act(() => void window.dispatchEvent(new Event('pointerdown')));
+  await settle();
 }
 
 // The inbox changes, then the sync poll's interval fires as it does every 8 seconds.
@@ -190,6 +195,8 @@ beforeEach(() => {
   focused = false;
   hidden = false;
   permission = 'granted';
+  sounds = 0;
+  audioBlocked = false;
   intervals = new Map();
   appWindow = false;
   displayMode = new dom.window.EventTarget();
@@ -219,6 +226,20 @@ beforeEach(() => {
   setGlobal('navigator', dom.window.navigator);
   setGlobal('localStorage', dom.window.localStorage);
   setGlobal('Notification', FakeNotification);
+  setGlobal(
+    'Audio',
+    class {
+      volume = 0;
+      constructor(public src: string) {}
+      async play() {
+        if (audioBlocked) throw new Error('Autoplay blocked');
+        assert.equal(this.src, '/sounds/notification.wav');
+        assert.ok(this.volume === 0 || this.volume === 0.22);
+        if (this.volume > 0) sounds++;
+      }
+      pause() {}
+    },
+  );
   setGlobal('Event', dom.window.Event);
   setGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   let lastInterval = 0;
@@ -256,6 +277,7 @@ describe('useDesktopNotifications', () => {
     await render();
     assert.ok(requests.includes(LATEST_PATH));
     assert.equal(shown.length, 0);
+    assert.equal(sounds, 0);
   });
 
   it('shows a new item while the app is not in front and opens it on click', async () => {
@@ -265,9 +287,26 @@ describe('useDesktopNotifications', () => {
     assert.equal(shown[0].title, 'MKT-7 Fix login');
     assert.equal(shown[0].options.body, 'Ada mentioned you');
     assert.equal(shown[0].options.tag, 'inbox-2');
+    assert.equal(sounds, 1);
     shown[0].onclick?.();
     assert.deepEqual(pushed, ['/acme/issue/MKT-7#comment-5']);
     assert.equal(shown[0].closed, true);
+  });
+
+  it('plays once for a batch without adding notification controls', async () => {
+    await render();
+    await inboxMoves([item(3), item(2), item(1)]);
+    assert.equal(shown.length, 2);
+    assert.equal(sounds, 1);
+  });
+
+  it('keeps desktop notifications when autoplay is blocked', async () => {
+    audioBlocked = true;
+    await render();
+    await inboxMoves([item(2), item(1)]);
+    assert.equal(shown.length, 1);
+    assert.notEqual(shown[0].options.silent, true);
+    assert.equal(sounds, 0);
   });
 
   it('shows a new item while the page is hidden', async () => {
@@ -459,6 +498,7 @@ describe('useDesktopNotifications', () => {
     await render();
     await inboxMoves([item(2), item(1)]);
     assert.equal(shown.length, 0);
+    assert.equal(sounds, 0);
   });
 
   it('stands down while push is on in this browser, and comes back when push goes off', async () => {
@@ -469,6 +509,7 @@ describe('useDesktopNotifications', () => {
     assert.ok(!requests.some((p) => p.startsWith('/sync/rev')));
     assert.equal(shown.length, 0);
 
+    assert.equal(sounds, 0);
     await act(() => setPushOnInThisBrowser(false));
     await settle();
     assert.ok(requests.includes(LATEST_PATH));

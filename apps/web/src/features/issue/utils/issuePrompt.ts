@@ -50,9 +50,9 @@ export async function buildIssuePrompt(
   const status = project.columns.find((c) => c.id === issue.columnId)?.name;
   const type =
     issue.typeId != null ? project.issueTypes.find((t) => t.id === issue.typeId)?.name : undefined;
-  const assignee = issue.assigneeUserId
-    ? project.assignees.find((a) => a.userId === issue.assigneeUserId)?.name
-    : undefined;
+  const assignee = (issue.assigneeUserIds ?? (issue.assigneeUserId ? [issue.assigneeUserId] : []))
+    .flatMap((id) => project.assignees.find((a) => a.userId === id)?.name ?? [])
+    .join(', ');
   const delegate = issue.delegateUserId
     ? project.assignees.find((a) => a.userId === issue.delegateUserId)?.name
     : undefined;

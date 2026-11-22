@@ -41,10 +41,11 @@ export default function InviteStep({ token, invite }: { token: string; invite: I
   }
 
   const sessionEmail = session.user.email;
-  if (sessionEmail.toLowerCase() === invite.email.toLowerCase()) {
+  if (invite.email == null || sessionEmail.toLowerCase() === invite.email.toLowerCase()) {
     return (
       <InviteActions
         token={token}
+        shared={invite.email == null}
         projectKey={invite.projectKey && projectRefOf(invite.teamRef, invite.projectKey)}
       />
     );
@@ -53,7 +54,7 @@ export default function InviteStep({ token, invite }: { token: string; invite: I
   return (
     <InviteNotice
       message={t.rich('wrongAccount', {
-        email: invite.email,
+        email: invite.email ?? '',
         sessionEmail,
         invited: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
         current: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,

@@ -141,6 +141,12 @@
     "language": "Мова",
     "languageDescription": "Мова інтерфейсу, ваших листів і Telegram-бота.",
     "timezone": "Часовий пояс",
+    "calendar": "Calendar system",
+    "calendarDescription": "Calendar for displaying and selecting dates, independent of interface language.",
+    "calendarOptions": {
+      "gregory": "Gregorian",
+      "persian": "Persian (Solar Hijri)"
+    },
     "timezoneDescription": "Усі дати й час у застосунку показуються в цьому поясі.",
     "timezonePlaceholder": "Виберіть часовий пояс",
     "timezoneEmpty": "Часових поясів не знайдено.",

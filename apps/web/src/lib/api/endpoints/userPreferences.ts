@@ -10,6 +10,8 @@ import type { CustomTheme } from '@/utils/customTheme';
 // its own page; startPage is the section the app root lands on; showChatByDefault
 // keeps the floating AI chat button on screen from the start; lastProjectId is the
 // project the app root reopens (null until the user has opened one).
+export type CalendarSystem = 'gregory' | 'persian';
+
 export type ThemePreference = 'light' | 'dark' | 'system';
 
 export type IssueOpenMode = 'panel' | 'page';
@@ -22,6 +24,7 @@ export type IssueActivityView = 'flat' | 'grouped';
 
 export interface AccountPreferences {
   timezone: string;
+  calendar: CalendarSystem;
   // The interface language. Mirrored into the NEXT_LOCALE cookie, which is what the
   // server renders with; also the language of this user's emails and bot messages.
   locale: Locale;

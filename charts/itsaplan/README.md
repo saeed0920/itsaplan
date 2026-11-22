@@ -193,6 +193,7 @@ god mode, under **License**.
 | `api.image.tag`                       | Image tag (defaults to `appVersion`)                      | `""`                             |
 | `api.image.pullPolicy`                | Image pull policy                                         | `IfNotPresent`                   |
 | `api.internalUrl`                     | Override internal API URL for inter-service communication | `""`                             |
+| `api.env.TELEGRAM_PROXY_URL` | HTTP(S) proxy for Telegram only, shared by API/worker/bot | `""` |
 | `api.env.API_URL`                     | Public API origin                                         | `""`                             |
 | `api.env.APP_URL`                     | Public web origin                                         | `""`                             |
 | `api.env.COOKIE_DOMAIN`               | Cookie domain override                                    | (unset)                          |

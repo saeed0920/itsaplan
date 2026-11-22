@@ -4,6 +4,7 @@ import {
   customField,
   customFieldOption,
   issue,
+  issueAssignee,
   issueFieldOption,
   issueFieldValue,
   issueKeyAlias,
@@ -136,6 +137,20 @@ export async function moveIssue(
     )
       throw new HttpError(409, 'The issue changed while it was being moved; try again');
 
+    // Membership FKs require dropping absent people before changing project.
+    await tx
+      .delete(issueAssignee)
+      .where(
+        and(
+          inArray(issueAssignee.issueId, movedIds),
+          members.size ? notInArray(issueAssignee.userId, [...members]) : undefined,
+        ),
+      );
+    await tx
+      .update(issueAssignee)
+      .set({ projectId: target.id })
+      .where(inArray(issueAssignee.issueId, movedIds));
+
     const [seqRow] = await tx
       .update(projectTable)
       .set({ nextSequence: sql`next_sequence + ${moved.length}` })
@@ -157,6 +172,7 @@ export async function moveIssue(
         .update(issue)
         .set({
           projectId: target.id,
+          archiveId: null,
           sequenceNumber: Number(seqRow.first) + i,
           columnId: p.newColumnId,
           typeId: p.newTypeId,

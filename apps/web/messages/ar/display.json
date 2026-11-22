@@ -65,6 +65,7 @@
     "byWeek": "حسب الأسبوع"
   },
   "weekStart": {
+    "default": "Workspace default",
     "6": "السبت",
     "0": "الأحد",
     "1": "الإثنين"

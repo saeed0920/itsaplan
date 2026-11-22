@@ -79,8 +79,8 @@ export default function NewIssueModal({
   const [cycle, setCycle] = useState<CycleRef | null>(
     () => project.plannedCycles.find((c) => c.id === initial.cycleId) ?? null,
   );
-  const [assigneeUserId, setAssigneeUserId] = useState<string | null>(
-    initial.assigneeUserId ?? null,
+  const [assigneeUserIds, setAssigneeUserIds] = useState<string[]>(
+    () => initial.assigneeUserIds ?? (initial.assigneeUserId ? [initial.assigneeUserId] : []),
   );
   const [delegateUserId, setDelegateUserId] = useState<string | null>(
     initial.delegateUserId ?? null,
@@ -221,7 +221,7 @@ export default function NewIssueModal({
     if (next.columnId != null) setColumnId(next.columnId);
     if (next.typeId != null) setTypeId(next.typeId);
     if (next.priority != null) setPriority(next.priority);
-    if (next.assigneeUserId != null) setAssigneeUserId(next.assigneeUserId);
+    if (next.assigneeUserId != null) setAssigneeUserIds([next.assigneeUserId]);
     if (next.labelIds.length > 0) setLabelIds(next.labelIds);
   }
 
@@ -239,7 +239,7 @@ export default function NewIssueModal({
           typeId,
           initiativeId,
           cycleId: cycle?.id ?? null,
-          assigneeUserId,
+          assigneeUserIds,
           delegateUserId,
           priority: priority || null,
           estimatePoints,
@@ -381,8 +381,9 @@ export default function NewIssueModal({
           {project.assignees.some((a) => a.kind === 'member') && (
             <AssigneeSelect
               assignees={project.assignees}
-              value={assigneeUserId}
-              onChange={setAssigneeUserId}
+              multiple
+              value={assigneeUserIds}
+              onChange={setAssigneeUserIds}
               placeholder={tFields('assignee')}
             />
           )}

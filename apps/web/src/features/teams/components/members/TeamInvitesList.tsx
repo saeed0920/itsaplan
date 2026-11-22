@@ -26,11 +26,13 @@ export default function TeamInvitesList({
   resendingId: number | null;
 }) {
   const tMembers = useTranslations('members.invites');
+  const t = useTranslations('teams.invite');
   const byEmail = new Map<string, InviteRow[]>();
   for (const invite of invites) {
-    const grants = byEmail.get(invite.email);
+    const key = invite.email ?? `shared-${invite.id}`;
+    const grants = byEmail.get(key);
     if (grants) grants.push(invite);
-    else byEmail.set(invite.email, [invite]);
+    else byEmail.set(key, [invite]);
   }
 
   return (
@@ -45,7 +47,7 @@ export default function TeamInvitesList({
               <Mail className="size-3.5 text-muted-foreground" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{email}</p>
+              <p className="truncate text-sm font-medium">{grants[0].email ?? t('sharedLink')}</p>
               {grants.map((invite) => (
                 <TeamInviteRow
                   key={invite.id}

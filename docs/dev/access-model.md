@@ -103,7 +103,12 @@ or on the request body is checked in the handler or the service.
   sets `sharingTeamsOnly` and the chosen teams. While any of them closes a project, its links
   answer 404 and a new link gets 403. Revoking still works. The tokens stay, so the same links open
   when sharing is on again.
-- **Personal workspaces:** no route creates a workspace. While `personalWorkspaces` is on in the
+- **Workspace creation:** `POST /workspaces` creates a workspace owned by the authenticated account.
+  `GET /workspaces/creation` reports permission for the UI. Both use `workspaceCreation`; the POST
+  uses `createOwnWorkspace`, which locks the user before enforcing the cap. The self-hosted default
+  cap is 0 (unlimited). Agents remain refused, and ordinary accounts remain refused while
+  `personalWorkspaces` is off. Names must contain non-whitespace text and be at most60 characters.
+- **Personal workspaces:** while `personalWorkspaces` is on in the
   auth settings (the default), a person who owns none gets one at sign-up, or on the next request
   through `ensurePersonalWorkspace` in `authContext`. While it is off, only the instance owner gets
   one, and anyone else works in the teams they are added to. An agent's bot user never owns one.
@@ -128,7 +133,12 @@ or on the request body is checked in the handler or the service.
   attaching an agent, SCIM and the hand-over of sole ownership write rows without an invite.
 - **Who invites:** a project invite takes `memberAdmin: ["members_invite", "create"]`, a team
   invite (`POST /teams/:teamId/invites`) takes `teamManager`.
-- An invite belongs to its address: accepting takes a session with that email, otherwise 403.
+- An addressed invite belongs to its address: accepting takes a session with that email, otherwise 403.
+- A team invite without an email is a reusable member-only link. Any active signed-in account
+  holding it may explicitly join. It grants no project role, never lowers an existing team rank,
+  and expires after the shorter of the instance lifetime and seven days (seven when unlimited).
+  Managers can revoke it; recipients cannot reject it for everyone. Acceptance rechecks the
+  sender's invitation authority. Renewal issues a new token and removes the expired link.
 - One pending invite per (project, email), and one pending team invite with no project per (team,
   email). Partial unique indexes answer 409, so an address can hold one of each.
 - An address already in the project or the team gets 409. A team member is added from the member
@@ -142,8 +152,10 @@ or on the request body is checked in the handler or the service.
   create and renew. By default an address with an account passes, and one without passes when its
   domain is in `allowedEmailDomains` (an empty list allows all). It does not read `registration`,
   so an invite can go to an address that cannot register on a closed instance.
-  `GET /teams/:teamId/invites/candidates` leaves out whom the policy refuses, and answers 403 while
-  `inviteSearch` is off (the default).
+  `GET /teams/:teamId/invites/candidates` leaves out whom the policy refuses. It always searches
+  people in the workspace's teams and workspace managers, excluding the target team's members
+  and AI agents. Empty search offers up to eight workspace people. With `inviteSearch` enabled,
+  searches of at least two characters also match accounts outside the workspace.
 
 ## Member lists
 

@@ -22,8 +22,8 @@ export function useBulkActions(project: ProjectDetail) {
     addLabel: (ids: number[], labelId: number) => addLabels.mutateAsync({ ids, add: [labelId] }),
     // Both removals carry what happens to the subtasks of the selected issues,
     // which the API requires whenever the selection has any.
-    archiveAll: (ids: number[], subtasks?: SubtaskDisposition) =>
-      archive.mutateAsync({ ids, subtasks }),
+    archiveAll: (ids: number[], subtasks?: SubtaskDisposition, archiveId?: number | null) =>
+      archive.mutateAsync({ ids, subtasks, archiveId }),
     deleteAll: (ids: number[], subtasks?: SubtaskDisposition) =>
       remove.mutateAsync({ ids, subtasks }),
     pending: update.isPending || addLabels.isPending || archive.isPending || remove.isPending,

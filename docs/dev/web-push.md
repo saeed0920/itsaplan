@@ -53,6 +53,15 @@ subscription, so a subscription the browser revoked, one made with old keys, or 
 off on the instance clears it. A change fires the desktop setting's change event in the tab,
 and other tabs read it from their `storage` event.
 
+## In-page sound
+
+The fork adds the Warm wood chime to new background in-page notifications, using the existing
+Desktop notifications switch. No extra settings or notification delivery path is added.
+Web Locks and a timestamp in browser storage prevent repeated chimes for the same batch.
+Autoplay/storage restrictions do not suppress desktop notifications or alter their OS sound
+options. A browser may need interaction with the app after opening it before it allows audio.
+Web Push and closed-app delivery retain browser/OS sound; they never play the custom WAV.
+
 ## Keys
 
 | Variable                     | Value                                                     |

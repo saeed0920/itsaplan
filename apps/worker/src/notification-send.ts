@@ -14,6 +14,7 @@ import {
   type NotificationConfig,
 } from '@repo/db';
 import { and, eq } from 'drizzle-orm';
+import { telegramFetch } from '@repo/net/telegram';
 import { sendEmail, emailBody, type EmailConfig, type SendResult } from '@repo/mailer';
 import { pinnedFetch, UrlNotAllowedError } from '@repo/net';
 import { encryptPushPayload, vapidAuthorization } from './web-push';
@@ -50,7 +51,11 @@ async function sendNotificationEmail(input: SendInput): Promise<SendResult> {
         ? await getProjectEmailConfig()
         : source === 'none'
           ? null
-          : { smtp: input.config.smtp, resend: input.config.resend, from: input.config.from };
+          : {
+              smtp: input.config.smtp,
+              resend: input.config.resend,
+              from: input.config.from,
+            };
   if (!config) return { ok: false, retryable: false, error: 'email not configured' };
   const { text, html } = input.payload.html
     ? { text: input.payload.text, html: input.payload.html }
@@ -87,7 +92,7 @@ async function sendTelegram(input: SendInput): Promise<SendResult> {
       ? `${input.payload.text}\n\n${input.payload.url}`
       : input.payload.text;
   try {
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    const res = await telegramFetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       signal: AbortSignal.timeout(15_000),
@@ -150,7 +155,11 @@ export async function sendPush(
   // this was queued: there is nobody left to send to.
   if (!subscription) return { ok: true };
   if (subscription.vapidPublicKey !== vapid.publicKey) {
-    return { ok: false, retryable: false, error: 'push subscription made with other VAPID keys' };
+    return {
+      ok: false,
+      retryable: false,
+      error: 'push subscription made with other VAPID keys',
+    };
   }
 
   let body: Uint8Array;
@@ -206,14 +215,22 @@ export async function sendPush(
   }
   // A 429 or 5xx is transient; any other answer (a refused token, a payload too large)
   // is permanent.
-  return { ok: false, retryable: res.status === 429 || res.status >= 500, error };
+  return {
+    ok: false,
+    retryable: res.status === 429 || res.status >= 500,
+    error,
+  };
 }
 
 async function sendDelivery(input: SendInput): Promise<SendResult> {
   if (input.channel === 'email') return sendNotificationEmail(input);
   if (input.channel === 'telegram') return sendTelegram(input);
   if (input.channel === 'push') return sendPush(input.recipient, input.payload);
-  return { ok: false, retryable: false, error: `unknown channel: ${input.channel}` };
+  return {
+    ok: false,
+    retryable: false,
+    error: `unknown channel: ${input.channel}`,
+  };
 }
 
 // Whether a queued invite email still has a live invite behind it.

@@ -4,7 +4,7 @@ import { auth, setAuthSettings, setWorkspaceScim } from '@repo/auth';
 import { db, workspace } from '@repo/db';
 import { deleteAccount } from '#shared/account-deletion';
 import { setOwnedWorkspaceLimit } from '#shared/limits';
-import { apiKeyApi, app, authedApi, createProject } from '#tests/helpers/app';
+import { apiKeyApi, authedApi, createProject } from '#tests/helpers/app';
 import { createAgent } from '#tests/helpers/agents';
 import { signUpTestUser, type TestUser } from '#tests/helpers/auth';
 import { resetDb } from '#tests/helpers/db';
@@ -46,6 +46,66 @@ async function makeAdmin(
 
 describe('workspaces', () => {
   beforeEach(resetDb);
+  afterEach(() => setOwnedWorkspaceLimit());
+
+  describe('POST /workspaces', () => {
+    it('creates multiple owned workspaces with the unlimited default', async () => {
+      const { ownerApi } = await setup();
+      for (const name of ['Second', 'Third']) {
+        const created = await ownerApi.workspaces.post({ name: `  ${name}  ` });
+        expect(created.status).toBe(201);
+        expect(created.data).toMatchObject({ name, role: 'owner', managerCount: 1 });
+      }
+      expect((await ownerApi.workspaces.get()).data).toHaveLength(3);
+    });
+
+    it('validates empty, whitespace-only and oversized names and accepts 60 characters', async () => {
+      const { ownerApi } = await setup();
+      for (const name of ['', '   ', 'a'.repeat(61)]) {
+        expect((await ownerApi.workspaces.post({ name })).status).toBe(400);
+      }
+      expect((await ownerApi.workspaces.post({ name: 'a'.repeat(60) })).status).toBe(201);
+    });
+
+    it('keeps workspace creation subject to personal-workspace policy', async () => {
+      const { ownerApi } = await setup();
+      await setAuthSettings({ personalWorkspaces: false });
+      const person = authedApi((await signUpTestUser({ team: false })).cookie);
+      expect((await person.workspaces.creation.get()).data).toEqual({
+        allowed: false,
+        reason: 'restricted',
+      });
+      expect((await person.workspaces.post({ name: 'Denied' })).status).toBe(403);
+      expect((await ownerApi.workspaces.creation.get()).data).toEqual({
+        allowed: true,
+        reason: null,
+      });
+      expect((await ownerApi.workspaces.post({ name: 'Allowed' })).status).toBe(201);
+    });
+
+    it('creates for the authenticated account without exposing it to another user', async () => {
+      const { ownerApi } = await setup();
+      const person = authedApi((await signUpTestUser({ team: false })).cookie);
+      const created = await person.workspaces.post({ name: 'Private workspace' });
+      expect(created.status).toBe(201);
+      expect(created.data!.role).toBe('owner');
+      expect((await ownerApi.workspaces({ workspaceId: created.data!.id }).get()).status).toBe(404);
+    });
+
+    it('serializes capped concurrent creation without exceeding the cap', async () => {
+      const { ownerApi } = await setup();
+      setOwnedWorkspaceLimit(2);
+      const results = await Promise.all(
+        ['Second', 'Third'].map((name) => ownerApi.workspaces.post({ name })),
+      );
+      expect(results.map((result) => result.status).sort()).toEqual([201, 409]);
+      expect((await ownerApi.workspaces.get()).data).toHaveLength(2);
+      expect((await ownerApi.workspaces.creation.get()).data).toEqual({
+        allowed: false,
+        reason: 'limit',
+      });
+    });
+  });
 
   describe('GET /workspaces', () => {
     it('lists the workspace with the standing of each reader', async () => {
@@ -55,10 +115,24 @@ describe('workspaces', () => {
       const outsider = await signUpTestUser({ team: false });
 
       expect((await ownerApi.workspaces.get()).data).toEqual([
-        { id: workspaceId, name: 'Root', role: 'owner', color: null, canCreateTeam: true },
+        {
+          id: workspaceId,
+          name: 'Root',
+          role: 'owner',
+          color: null,
+          weekStart: 0,
+          canCreateTeam: true,
+        },
       ]);
       expect((await authedApi(member.cookie).workspaces.get()).data).toEqual([
-        { id: workspaceId, name: 'Root', role: null, color: null, canCreateTeam: false },
+        {
+          id: workspaceId,
+          name: 'Root',
+          role: null,
+          color: null,
+          weekStart: 0,
+          canCreateTeam: false,
+        },
       ]);
       expect((await authedApi(outsider.cookie).workspaces.get()).data).toEqual([]);
     });
@@ -107,6 +181,38 @@ describe('workspaces', () => {
   });
 
   describe('settings', () => {
+    it('lets managers set week start, exposes it to project members and rejects invalid days', async () => {
+      const { ownerApi, workspaceId, teamId } = await setup();
+      const member = await addPerson(ownerApi, teamId);
+      const memberApi = authedApi(member.cookie);
+      const created = await createProject(ownerApi, { key: 'CAL', name: 'Calendar' });
+      const projectKey = created.data!.ref;
+      await ownerApi
+        .projects({ projectKey })
+        .members.post({ userId: member.userId, role: 'member' });
+      expect((await memberApi.workspaces({ workspaceId }).patch({ weekStart: 6 })).status).toBe(
+        404,
+      );
+      for (const weekStart of [6, 1, 0] as const) {
+        const updated = await ownerApi.workspaces({ workspaceId }).patch({ weekStart });
+        expect(updated.status).toBe(200);
+        expect(updated.data?.weekStart).toBe(weekStart);
+        expect(
+          (await memberApi.projects({ projectKey }).get()).data?.project.workspaceWeekStart,
+        ).toBe(weekStart);
+      }
+      await makeAdmin(ownerApi, workspaceId, member);
+      expect((await memberApi.workspaces({ workspaceId }).patch({ weekStart: 6 })).status).toBe(
+        200,
+      );
+      await ownerApi.workspaces({ workspaceId }).patch({ name: 'Calendar team' });
+      expect((await ownerApi.workspaces({ workspaceId }).get()).data?.weekStart).toBe(6);
+      for (const value of [-1, 2, 5, 7, 1.5, '6', null]) {
+        expect(
+          (await ownerApi.workspaces({ workspaceId }).patch({ weekStart: value as 6 })).status,
+        ).toBe(400);
+      }
+    });
     it('lets a manager recolour it, and refuses a colour that is not #rrggbb', async () => {
       const { ownerApi, workspaceId, teamId } = await setup();
       const admin = await addPerson(ownerApi, teamId);
@@ -277,6 +383,7 @@ describe('workspaces', () => {
     });
 
     it('refuses somebody who is not its admin, or who owns a workspace already', async () => {
+      setOwnedWorkspaceLimit(1);
       const { person, personApi, workspaceId, teamId } = await withAdmin();
       await setAuthSettings({ personalWorkspaces: true });
       const other = await signUpTestUser({ team: false });
@@ -359,7 +466,14 @@ describe('workspaces', () => {
       expect(own).toMatchObject({ name: 'Jane Doe', role: 'owner' });
       expect(own!.id).not.toBe(workspaceId);
       expect((await ownerApi.workspaces.get()).data).toEqual([
-        { id: workspaceId, name: 'Root', role: 'owner', color: null, canCreateTeam: true },
+        {
+          id: workspaceId,
+          name: 'Root',
+          role: 'owner',
+          color: null,
+          weekStart: 0,
+          canCreateTeam: true,
+        },
       ]);
     });
 
@@ -468,8 +582,8 @@ describe('workspaces', () => {
       ]);
     });
 
-    it('makes none for an AI agent, and no route creates one', async () => {
-      const { owner, ownerApi } = await setup();
+    it('makes none for an AI agent and refuses explicit creation', async () => {
+      const { ownerApi } = await setup();
       await createProject(ownerApi, { key: 'MKT', name: 'Marketing' });
       const created = await createAgent(ownerApi, 'MKT', {
         name: 'Bot',
@@ -480,14 +594,11 @@ describe('workspaces', () => {
 
       const seen = (await bot.workspaces.get()).data!;
       expect(seen.filter((w) => w.role === 'owner')).toEqual([]);
-      const post = await app.handle(
-        new Request('http://localhost/workspaces', {
-          method: 'POST',
-          headers: { cookie: owner.cookie, 'content-type': 'application/json' },
-          body: JSON.stringify({ name: 'Second' }),
-        }),
-      );
-      expect(post.status).toBe(404);
+      expect((await bot.workspaces.creation.get()).data).toEqual({
+        allowed: false,
+        reason: 'restricted',
+      });
+      expect((await bot.workspaces.post({ name: 'Second' })).status).toBe(403);
     });
 
     it('goes with a deleted account while it holds no project', async () => {
@@ -589,7 +700,8 @@ describe('workspaces', () => {
   describe('createOwnWorkspace', () => {
     afterEach(() => setOwnedWorkspaceLimit());
 
-    it('keeps a person to one workspace unless the limit is raised', async () => {
+    it('enforces an explicit cap and treats zero as unlimited', async () => {
+      setOwnedWorkspaceLimit(1);
       await setup();
       const person = await signUpTestUser({ team: false });
       const account = { id: person.userId, role: 'user' };

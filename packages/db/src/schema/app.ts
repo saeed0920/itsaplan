@@ -10,6 +10,7 @@ import {
   type AnyPgColumn,
   date,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -61,6 +62,7 @@ export const workspace = pgTable(
     // Who creates teams in it: the owner alone, the owner and admins (managers), or
     // anyone in one of its teams (members).
     teamCreation: text('team_creation').notNull().default('owner'),
+    weekStart: integer('week_start').notNull().default(0),
     // Runs of its internal agents in flight at once; 0 sets no limit of its own.
     maxConcurrentRuns: integer('max_concurrent_runs').notNull().default(0),
     // Whether its projects may have public links. Its owner and admins set it.
@@ -74,6 +76,7 @@ export const workspace = pgTable(
       'workspace_team_creation_check',
       sql`${t.teamCreation} IN ('owner', 'managers', 'members')`,
     ),
+    check('workspace_week_start_check', sql`${t.weekStart} IN (0, 1, 6)`),
     check('workspace_max_concurrent_runs_check', sql`${t.maxConcurrentRuns} >= 0`),
   ],
 );
@@ -319,6 +322,7 @@ export const userPreference = pgTable(
       .primaryKey()
       .references(() => user.id, { onDelete: 'cascade' }),
     timezone: text('timezone').notNull().default('UTC'),
+    calendar: text('calendar').notNull().default('gregory'),
     locale: text('locale').notNull().default('en'),
     theme: text('theme').notNull().default('system'),
     issueOpenMode: text('issue_open_mode').notNull().default('panel'),
@@ -351,6 +355,7 @@ export const userPreference = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    check('user_preference_calendar_check', sql`${t.calendar} IN ('gregory', 'persian')`),
     check('user_preference_theme_check', sql`${t.theme} IN ('light', 'dark', 'system')`),
     check('user_preference_issue_open_mode_check', sql`${t.issueOpenMode} IN ('panel', 'page')`),
     check(
@@ -382,7 +387,9 @@ export const teamRole = pgTable(
   'team_role',
   {
     id: serial('id').primaryKey(),
-    teamId: integer('team_id').references(() => team.id, { onDelete: 'cascade' }),
+    teamId: integer('team_id').references(() => team.id, {
+      onDelete: 'cascade',
+    }),
     name: text('name').notNull(),
     isDefault: boolean('is_default').notNull().default(false),
     permissions: jsonb('permissions').notNull().default({}),
@@ -461,8 +468,10 @@ export const teamInvite = pgTable(
       .notNull()
       .references(() => team.id, { onDelete: 'cascade' }),
     // NULL for an invite into the team alone.
-    projectId: integer('project_id').references(() => project.id, { onDelete: 'cascade' }),
-    email: text('email').notNull(),
+    projectId: integer('project_id').references(() => project.id, {
+      onDelete: 'cascade',
+    }),
+    email: text('email'),
     // An invite that names a project always brings its invitee into the team as a
     // plain member; a rank above that is granted by an invite into the team itself.
     teamRole: text('team_role').notNull().default('member'),
@@ -484,6 +493,10 @@ export const teamInvite = pgTable(
     respondedAt: timestamp('responded_at', { withTimezone: true }),
   },
   (t) => [
+    check(
+      'team_invite_shared_member_check',
+      sql`${t.email} IS NOT NULL OR (${t.projectId} IS NULL AND ${t.teamRole} = 'member' AND ${t.roleId} IS NULL)`,
+    ),
     check('team_invite_team_role_check', sql`${t.teamRole} IN ('owner', 'manager', 'member')`),
     check(
       'team_invite_project_role_check',
@@ -653,7 +666,9 @@ export const aiAgent = pgTable(
     // The member who created the agent. An external agent's runner authenticates
     // with the agent's key, so `owner` scope means the runner only receives runs
     // this member triggered; `team` scope, the default, means any member's.
-    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'set null' }),
+    ownerUserId: text('owner_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     runnerScope: text('runner_scope').notNull().default('team'),
     // Last time a runner claimed work or sent a heartbeat for this agent, which is
     // what the UI shows as its presence. NULL for an agent no runner ever polled.
@@ -714,7 +729,9 @@ export const agentSchedule = pgTable(
     timezone: text('timezone').notNull(),
     status: text('status').notNull().default('active'),
     nextRunAt: timestamp('next_run_at', { withTimezone: true }),
-    columnId: integer('column_id').references(() => projectColumn.id, { onDelete: 'cascade' }),
+    columnId: integer('column_id').references(() => projectColumn.id, {
+      onDelete: 'cascade',
+    }),
     delaySec: integer('delay_sec').notNull().default(0),
     // Settings an extension of the api keeps on the schedule. The core stores and
     // copies them and reads none.
@@ -788,8 +805,12 @@ export const agentRun = pgTable(
     projectId: integer('project_id')
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
-    issueId: integer('issue_id').references(() => issue.id, { onDelete: 'cascade' }),
-    scheduleId: integer('schedule_id').references(() => agentSchedule.id, { onDelete: 'cascade' }),
+    issueId: integer('issue_id').references(() => issue.id, {
+      onDelete: 'cascade',
+    }),
+    scheduleId: integer('schedule_id').references(() => agentSchedule.id, {
+      onDelete: 'cascade',
+    }),
     // 'event' is a run an extension queued on an issue for a schedule of its own type.
     // 'api' is a task sent through POST /run or run_ai_agent: no issue, document or schedule.
     trigger: text('trigger').notNull().default('delegation'),
@@ -828,7 +849,9 @@ export const agentRun = pgTable(
     inputTokens: integer('input_tokens'),
     outputTokens: integer('output_tokens'),
     startedAt: timestamp('started_at', { withTimezone: true }),
-    executionStartedAt: timestamp('execution_started_at', { withTimezone: true }),
+    executionStartedAt: timestamp('execution_started_at', {
+      withTimezone: true,
+    }),
     // The api's current claim of an internal agent's run; null while the run waits,
     // deferred or in retry backoff. The instance's run limit counts the claimed runs.
     claimedAt: timestamp('claimed_at', { withTimezone: true }),
@@ -1150,7 +1173,9 @@ export const userTelegramAccount = pgTable(
     username: text('username'),
     firstName: text('first_name'),
     linkCode: text('link_code'),
-    linkCodeExpiresAt: timestamp('link_code_expires_at', { withTimezone: true }),
+    linkCodeExpiresAt: timestamp('link_code_expires_at', {
+      withTimezone: true,
+    }),
     linkedAt: timestamp('linked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1436,10 +1461,16 @@ export const issueTemplate = pgTable(
     // The title and body the issue starts with, both editable before it is created.
     titleTemplate: text('title_template').notNull().default(''),
     descriptionTemplate: text('description_template').notNull().default(''),
-    typeId: integer('type_id').references(() => issueType.id, { onDelete: 'set null' }),
-    columnId: integer('column_id').references(() => projectColumn.id, { onDelete: 'set null' }),
+    typeId: integer('type_id').references(() => issueType.id, {
+      onDelete: 'set null',
+    }),
+    columnId: integer('column_id').references(() => projectColumn.id, {
+      onDelete: 'set null',
+    }),
     priority: text('priority'),
-    assigneeUserId: text('assignee_user_id').references(() => user.id, { onDelete: 'set null' }),
+    assigneeUserId: text('assignee_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique().on(t.projectId, t.name)],
@@ -1560,6 +1591,22 @@ export const cycle = pgTable(
   ],
 );
 
+export const issueArchive = pgTable(
+  'issue_archive',
+  {
+    id: serial('id').primaryKey(),
+    projectId: integer('project_id')
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('issue_archive_project_name_uq').on(t.projectId, t.name),
+    unique('issue_archive_id_project_uq').on(t.id, t.projectId),
+  ],
+);
+
 export const issue = pgTable(
   'issue',
   {
@@ -1568,6 +1615,9 @@ export const issue = pgTable(
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
     sequenceNumber: integer('sequence_number').notNull(),
+    archiveId: integer('archive_id').references(() => issueArchive.id, {
+      onDelete: 'set null',
+    }),
     typeId: integer('type_id').references(() => issueType.id, {
       onDelete: 'set null',
     }),
@@ -1630,6 +1680,15 @@ export const issue = pgTable(
   },
   (t) => [
     unique().on(t.projectId, t.sequenceNumber),
+    foreignKey({
+      columns: [t.archiveId, t.projectId],
+      foreignColumns: [issueArchive.id, issueArchive.projectId],
+      name: 'issue_archive_project_fk',
+    }),
+    check(
+      'issue_archive_requires_archived_check',
+      sql`${t.archiveId} IS NULL OR ${t.archivedAt} IS NOT NULL`,
+    ),
     check('issue_estimate_points_check', sql`${t.estimatePoints} >= 0`),
     check('issue_estimate_minutes_check', sql`${t.estimateMinutes} >= 0`),
     // Backs the board/list read (active issues of a project) and the worker's
@@ -1658,9 +1717,28 @@ export const issue = pgTable(
   ],
 );
 
-// The number an issue held in a project it was moved out of, so a link to the old
-// identifier still resolves. project.next_sequence never hands that number out again,
-// so it cannot collide with an issue of that project.
+// Additional assignees; issue.assignee_user_id remains the legacy primary.
+export const issueAssignee = pgTable(
+  'issue_assignee',
+  {
+    issueId: integer('issue_id')
+      .notNull()
+      .references(() => issue.id, { onDelete: 'cascade' }),
+    projectId: integer('project_id').notNull(),
+    userId: text('user_id').notNull(),
+    position: integer('position').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.issueId, t.userId] }),
+    foreignKey({
+      columns: [t.projectId, t.userId],
+      foreignColumns: [projectMember.projectId, projectMember.userId],
+    }).onDelete('cascade'),
+    index('issue_assignee_member_idx').on(t.projectId, t.userId),
+  ],
+);
+
+// Old issue numbers continue to resolve after a project move.
 export const issueKeyAlias = pgTable(
   'issue_key_alias',
   {
@@ -1722,7 +1800,9 @@ export const issueStatus = pgTable(
       .notNull()
       .references(() => issue.id, { onDelete: 'cascade' }),
     // NULL once the column is deleted, which keeps the stretches spent in it.
-    columnId: integer('column_id').references(() => projectColumn.id, { onDelete: 'set null' }),
+    columnId: integer('column_id').references(() => projectColumn.id, {
+      onDelete: 'set null',
+    }),
     // The name the column had at that moment. NULL only in a backfilled row whose
     // change-log entry recorded none.
     columnName: text('column_name'),
@@ -1835,7 +1915,9 @@ export const issueFieldValue = pgTable(
     valueDatetimeEnd: timestamp('value_datetime_end', { withTimezone: true }),
     // member fields. Deleting the user clears the field rather than the row, so the
     // issue keeps the rest of its values.
-    valueUserId: text('value_user_id').references(() => user.id, { onDelete: 'set null' }),
+    valueUserId: text('value_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
   },
   (t) => [unique().on(t.issueId, t.fieldId)],
 );
@@ -2166,7 +2248,9 @@ export const projectView = pgTable(
     // is set only on private views, so deleting an account takes its private views and
     // never a project's.
     isPrivate: boolean('is_private').notNull().default(false),
-    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'cascade' }),
+    ownerUserId: text('owner_user_id').references(() => user.id, {
+      onDelete: 'cascade',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -2425,8 +2509,12 @@ export const noteBoard = pgTable(
     projectId: integer('project_id')
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
-    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'cascade' }),
-    createdByUserId: text('created_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+    ownerUserId: text('owner_user_id').references(() => user.id, {
+      onDelete: 'cascade',
+    }),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     name: text('name').notNull(),
     canvas: jsonb('canvas').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -2644,7 +2732,9 @@ export const notification = pgTable(
     projectId: integer('project_id')
       .notNull()
       .references(() => project.id, { onDelete: 'cascade' }),
-    issueId: integer('issue_id').references(() => issue.id, { onDelete: 'cascade' }),
+    issueId: integer('issue_id').references(() => issue.id, {
+      onDelete: 'cascade',
+    }),
     sourceActivityId: integer('source_activity_id').references(() => issueActivity.id, {
       onDelete: 'set null',
     }),
@@ -2740,7 +2830,9 @@ export const documentComment = pgTable(
     parentId: uuid('parent_id').references((): AnyPgColumn => documentComment.id, {
       onDelete: 'cascade',
     }),
-    authorId: text('author_id').references(() => user.id, { onDelete: 'set null' }),
+    authorId: text('author_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     body: text('body').notNull(),
     quote: text('quote').notNull().default(''),
     from: integer('selection_from'),

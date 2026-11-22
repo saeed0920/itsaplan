@@ -16,9 +16,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Calendar } from '@/components/ui/calendar';
+import { DateCalendar as Calendar } from '@/components/common/fields/DateCalendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useCalendar } from '@/hooks/useCalendar';
 
 const EXPIRY_PRESETS = [1, 3, 7] as const;
 
@@ -80,6 +81,8 @@ export default function ShareDialog({
 }) {
   const t = useTranslations('common.share');
   const format = useFormatter();
+  const { calendar } = useCalendar();
+
   const [current, setCurrent] = useState<string | null>(token);
   const [expiry, setExpiry] = useState<string | null>(expiresAt);
   const [expiryOpen, setExpiryOpen] = useState(false);
@@ -140,7 +143,11 @@ export default function ShareDialog({
 
   const expiryLabel = expiry
     ? t('expiresOn', {
-        date: format.dateTime(new Date(expiry), { dateStyle: 'medium', timeStyle: 'short' }),
+        date: format.dateTime(new Date(expiry), {
+          calendar,
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
       })
     : t('neverExpires');
 

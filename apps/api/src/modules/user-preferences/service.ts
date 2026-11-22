@@ -27,6 +27,7 @@ export const START_PAGES = ['inbox', 'dashboard', 'work-items', 'initiatives'] a
 export const ISSUE_STATS_VIEWS = ['compact', 'timeline'] as const;
 export const ISSUE_ACTIVITY_VIEWS = ['flat', 'grouped'] as const;
 
+export type Calendar = 'gregory' | 'persian';
 export type Theme = (typeof THEMES)[number];
 export type Palette = (typeof PALETTES)[number];
 export interface CustomTheme {
@@ -42,6 +43,7 @@ export type IssueActivityView = (typeof ISSUE_ACTIVITY_VIEWS)[number];
 
 export interface UserPreferenceDto {
   timezone: string;
+  calendar: Calendar;
   // The interface language, also used for this user's emails and bot messages.
   locale: Locale;
   theme: Theme;
@@ -79,6 +81,7 @@ export type UserPreferencePatch = Partial<UserPreferenceDto>;
 export function defaults(locale: Locale = DEFAULT_LOCALE): UserPreferenceDto {
   return {
     timezone: DEFAULT_TIMEZONE,
+    calendar: 'gregory',
     locale,
     theme: 'system',
     palette: 'default',
@@ -109,6 +112,7 @@ export function isValidTimezone(value: string): boolean {
 
 function toDto(row: {
   timezone: string;
+  calendar: string;
   locale: string;
   theme: string;
   palette: string;
@@ -126,6 +130,7 @@ function toDto(row: {
 }): UserPreferenceDto {
   return {
     timezone: row.timezone,
+    calendar: row.calendar as Calendar,
     locale: row.locale as Locale,
     theme: row.theme as Theme,
     palette: row.palette as Palette,
@@ -151,6 +156,7 @@ export async function getPreferences(
   const rows = await db
     .select({
       timezone: userPreference.timezone,
+      calendar: userPreference.calendar,
       locale: userPreference.locale,
       theme: userPreference.theme,
       palette: userPreference.palette,

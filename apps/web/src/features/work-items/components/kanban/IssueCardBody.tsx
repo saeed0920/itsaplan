@@ -15,13 +15,14 @@ import { formatDurationShort, formatShortDate, isDueOverdue } from '@/utils/date
 import { formatMinutes } from '@/utils/estimate';
 import type { DisplayProperty, PropertyKey } from '@/utils/viewSettings';
 import {
-  AssigneeAvatar,
   DateBadge,
   DelegateAvatar,
   LabelBadge,
   PILL,
   PriorityBadge,
 } from '@/features/issue/components/shared/IssueBadges';
+import AssigneeAvatars from '@/components/common/fields/AssigneeAvatars';
+import { issueAssigneeIds } from '@/utils/assignees';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { StateIcon } from '@/features/issue/components/shared/IssueIcons';
@@ -45,8 +46,7 @@ export function IssueCardBody({
   const t = useTranslations('workItems');
   const has = (p: DisplayProperty) => properties.includes(p);
   const type = issue.typeId != null ? maps.typeById.get(issue.typeId) : undefined;
-  const assignee =
-    issue.assigneeUserId != null ? maps.assigneeById.get(issue.assigneeUserId) : undefined;
+  const assigneeIds = issueAssigneeIds(issue);
   const delegate =
     issue.delegateUserId != null ? maps.assigneeById.get(issue.delegateUserId) : undefined;
   const initiative = issue.initiative ?? undefined;
@@ -65,7 +65,7 @@ export function IssueCardBody({
   const footerShown =
     has('created') ||
     has('updated') ||
-    (has('assignee') && assignee) ||
+    (has('assignee') && assigneeIds.length > 0) ||
     (has('delegate') && delegate);
 
   return (
@@ -190,12 +190,8 @@ export function IssueCardBody({
                 className="ring-2 ring-[var(--kanban-card)]"
               />
             )}
-            {has('assignee') && assignee && (
-              <AssigneeAvatar
-                name={assignee.name}
-                image={assignee.image}
-                className="ring-2 ring-[var(--kanban-card)]"
-              />
+            {has('assignee') && assigneeIds.length > 0 && (
+              <AssigneeAvatars ids={assigneeIds} people={maps.assigneeById} />
             )}
           </div>
         </div>

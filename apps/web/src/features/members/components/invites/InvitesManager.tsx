@@ -56,7 +56,10 @@ export default function InvitesManager({ projectKey }: { projectKey: string }) {
               onResend={canCreate ? resendInvite : undefined}
               onRenew={
                 canCreate &&
-                mayRenewInvite(invite, { teamRole: viewerTeamRole, ownsProject: isOwner })
+                mayRenewInvite(invite, {
+                  teamRole: viewerTeamRole,
+                  ownsProject: isOwner,
+                })
                   ? (expired) => renew.mutate(expired.id)
                   : undefined
               }
@@ -70,7 +73,7 @@ export default function InvitesManager({ projectKey }: { projectKey: string }) {
 
       {canDelete && target && (
         <ConfirmDialog
-          title={t('revokeTitle', { email: target.email })}
+          title={t('revokeTitle', { email: target.email ?? '' })}
           confirmLabel={t('revokeConfirm')}
           onConfirm={async () => {
             await deleteInvite.mutateAsync(target.id);

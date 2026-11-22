@@ -80,6 +80,7 @@ export const qk = {
   // issues, not the scaffold.
   boardIssues: (projectKey: string) => ['boardIssues', projectKey] as const,
   // A project's archived issues.
+  issueArchives: (projectKey: string) => ['issueArchives', projectKey] as const,
   archivedIssues: (projectKey: string) => ['archivedIssues', projectKey] as const,
   // Command-palette issue search, scoped to a project and the search term.
   issueSearch: (projectKey: string, q: string) => ['issueSearch', projectKey, q] as const,

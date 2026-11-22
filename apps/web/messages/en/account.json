@@ -141,6 +141,12 @@
     "language": "Language",
     "languageDescription": "The language of the interface, your emails, and the Telegram bot.",
     "timezone": "Timezone",
+    "calendar": "Calendar system",
+    "calendarDescription": "Calendar for displaying and selecting dates, independent of interface language.",
+    "calendarOptions": {
+      "gregory": "Gregorian",
+      "persian": "Persian (Solar Hijri)"
+    },
     "timezoneDescription": "Dates and times across the app show in this zone.",
     "timezonePlaceholder": "Select a timezone",
     "timezoneEmpty": "No timezones found.",

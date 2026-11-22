@@ -12,6 +12,7 @@ import {
   notificationSubject,
 } from '@/utils/inboxNotification';
 import { revScope } from '@/utils/revScopes';
+import { playNotificationSound, unlockNotificationSound } from '@/utils/notificationSound';
 import {
   NOTIFICATION_SETTINGS_EVENT,
   isPushOnInThisBrowser,
@@ -69,6 +70,7 @@ export function useDesktopNotificationsState(): DesktopNotificationsState {
 }
 
 export async function setDesktopNotifications(on: boolean) {
+  if (on) unlockNotificationSound();
   if (on && Notification.permission === 'default') await Notification.requestPermission();
   try {
     if (on && Notification.permission === 'granted') localStorage.setItem(STORAGE_KEY, 'on');
@@ -192,12 +194,16 @@ export function useDesktopNotifications() {
     onSince.current = Date.now();
     markFront();
     const beat = setInterval(markFront, FRONT_BEAT_MS);
+    window.addEventListener('pointerdown', unlockNotificationSound);
+    window.addEventListener('keydown', unlockNotificationSound);
     window.addEventListener('focus', markFront);
     window.addEventListener('blur', markFront);
     window.addEventListener('pagehide', clearFront);
     document.addEventListener('visibilitychange', markFront);
     return () => {
       clearInterval(beat);
+      window.removeEventListener('pointerdown', unlockNotificationSound);
+      window.removeEventListener('keydown', unlockNotificationSound);
       window.removeEventListener('focus', markFront);
       window.removeEventListener('blur', markFront);
       window.removeEventListener('pagehide', clearFront);
@@ -258,7 +264,10 @@ export function useDesktopNotifications() {
     );
     // In front, here or in another tab, the inbox itself shows the new item.
     if (fresh.length === 0 || inFront() || anotherTabInFront()) return;
+    const done = new AbortController();
     const show = () => {
+      if (done.signal.aborted) return;
+      let shownAny = false;
       for (const n of fresh) {
         const ref = projects?.find((p) => p.id === n.projectId)?.ref;
         const path = ref ? notificationPath(n, ref) : null;
@@ -268,6 +277,7 @@ export function useDesktopNotifications() {
             tag: `inbox-${n.id}`,
             icon: '/icon-192.png',
           });
+          shownAny = true;
           shown.onclick = () => {
             window.focus();
             if (path) router.push(path);
@@ -278,13 +288,13 @@ export function useDesktopNotifications() {
           // Android) throws here; the inbox still has the item.
         }
       }
+      if (shownAny) void playNotificationSound(fresh[0].createdAt, done.signal);
     };
-    if (appWindow) {
-      show();
-      return;
-    }
-    void appWindowOpen().then((open) => {
-      if (!open) show();
-    });
+    if (appWindow) show();
+    else
+      void appWindowOpen().then((open) => {
+        if (!open) show();
+      });
+    return () => done.abort();
   }, [on, appWindow, latest, dataUpdatedAt, projects, router, te, tDocuments]);
 }

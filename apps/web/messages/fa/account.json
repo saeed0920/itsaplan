@@ -141,6 +141,12 @@
     "language": "زبان",
     "languageDescription": "زبان رابط کاربری، ایمیل‌های شما و ربات Telegram.",
     "timezone": "منطقه زمانی",
+    "calendar": "تقویم",
+    "calendarDescription": "تقویم نمایش و انتخاب تاریخ‌ها، مستقل از زبان رابط کاربری.",
+    "calendarOptions": {
+      "gregory": "میلادی",
+      "persian": "هجری شمسی"
+    },
     "timezoneDescription": "همهٔ تاریخ‌ها و زمان‌های برنامه با این منطقهٔ زمانی نشان داده می‌شوند.",
     "timezonePlaceholder": "یک منطقه زمانی انتخاب کنید",
     "timezoneEmpty": "منطقه زمانی‌ای یافت نشد.",

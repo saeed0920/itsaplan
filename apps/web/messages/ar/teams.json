@@ -96,6 +96,16 @@
     "permissions": "الصلاحيات"
   },
   "invite": {
+    "sharedLink": "Shareable team link",
+    "sharedLinkHint": "Any signed-in account with this link can join as a member. Forward only to people you trust. Expires within 7 days; revoke it from pending invites.",
+    "createLink": "Create invite link",
+    "creatingLink": "Creating…",
+    "linkError": "Could not create invite link.",
+    "copyError": "Could not copy. Select the link and copy it manually.",
+    "workspacePeople": "Workspace people",
+    "loadingPeople": "Loading workspace people…",
+    "retryPeople": "Retry loading people",
+    "noPeople": "No matching workspace people. Enter an email or share an invite link.",
     "action": "دعوة للفريق",
     "title": "دعوة للفريق",
     "emailLabel": "البريد",
@@ -776,6 +786,10 @@
     "projectToggleAria": "تبديل الوصول عبر MCP لـ {project}"
   },
   "workspace": {
+    "weekStart": {
+      "title": "First day of week",
+      "description": "Week start for date pickers and default calendar views in this workspace’s projects."
+    },
     "rail": "مساحات العمل",
     "create": "مساحة عمل جديدة",
     "createUnavailableTitle": "مساحات عمل أكتر",

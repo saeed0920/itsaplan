@@ -49,7 +49,11 @@ export default function TeamMembersSection({ teamId }: { teamId: number }) {
   const [kind, setKind] = useState<MemberKind>('all');
   const { search, setSearch, term } = useSearchTerm();
   const paging = usePaging();
-  const membersQuery = useTeamMembersQuery(teamId, { search: term, kind, ...paging.params });
+  const membersQuery = useTeamMembersQuery(teamId, {
+    search: term,
+    kind,
+    ...paging.params,
+  });
   const canInvite = team != null && team.role !== 'member';
   const invitesQuery = useTeamInvitesQuery(teamId, canInvite);
   const deleteInvite = useDeleteTeamInvite(teamId);
@@ -68,7 +72,9 @@ export default function TeamMembersSection({ teamId }: { teamId: number }) {
   // a search narrows them by address like it narrows the members.
   const needle = term?.toLowerCase();
   const pending = (invitesQuery.data ?? []).filter(
-    (invite) => invite.status === 'pending' && (!needle || invite.email.includes(needle)),
+    (invite) =>
+      invite.status === 'pending' &&
+      (!needle || (invite.email ?? tInvite('sharedLink')).toLowerCase().includes(needle)),
   );
 
   function onKindChange(next: string) {
@@ -109,7 +115,10 @@ export default function TeamMembersSection({ teamId }: { teamId: number }) {
             onRevoke={setTarget}
             onRenew={(expired) => renewInvite.mutate(expired.id)}
             canRenew={(invite) =>
-              mayRenewInvite(invite, { teamRole: team?.role ?? null, ownsProject: false })
+              mayRenewInvite(invite, {
+                teamRole: team?.role ?? null,
+                ownsProject: false,
+              })
             }
             renewingId={renewInvite.isPending ? (renewInvite.variables ?? null) : null}
             onResend={(valid) => sendInviteEmail.mutate(valid.id)}
@@ -198,7 +207,9 @@ export default function TeamMembersSection({ teamId }: { teamId: number }) {
 
       {removing && (
         <ConfirmDialog
-          title={t('members.removeTitle', { name: removing.name || removing.email })}
+          title={t('members.removeTitle', {
+            name: removing.name || removing.email,
+          })}
           confirmLabel={t('members.removeConfirm')}
           onConfirm={async () => {
             await removeMember.mutateAsync(removing.userId);
@@ -213,7 +224,9 @@ export default function TeamMembersSection({ teamId }: { teamId: number }) {
 
       {target && (
         <ConfirmDialog
-          title={tInvite('revokeTitle', { email: target.email })}
+          title={tInvite('revokeTitle', {
+            email: target.email ?? tInvite('sharedLink'),
+          })}
           confirmLabel={tInvite('revokeConfirm')}
           onConfirm={async () => {
             await deleteInvite.mutateAsync(target.id);

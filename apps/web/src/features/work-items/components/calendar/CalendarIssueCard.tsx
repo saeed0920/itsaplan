@@ -5,8 +5,7 @@ import type { Issue } from '@/lib/api/endpoints/issues';
 import { useIsPhone } from '@/hooks/useIsPhone';
 import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
-import IssueContextMenu from '@/features/issue/components/actions/IssueContextMenu';
-import { DRAGGABLE_FOCUS } from '../../utils/dnd';
+import { CalendarIssueTooltip } from './CalendarIssueTooltip';
 
 // Memoized because the unscheduled panel renders again on every scroll step.
 export const CalendarIssueCard = memo(function CalendarIssueCard({
@@ -34,18 +33,19 @@ export const CalendarIssueCard = memo(function CalendarIssueCard({
     disabled: useIsPhone() || !can('work_items', 'edit'),
   });
   return (
-    <IssueContextMenu project={project} issue={issue}>
-      <div
+    <CalendarIssueTooltip project={project} issue={issue} dragging={isDragging}>
+      <button
+        type="button"
         ref={setNodeRef}
         {...attributes}
         {...listeners}
+        tabIndex={0}
         onClick={(e) => {
           e.preventDefault();
           onOpen(issue.id);
         }}
         className={cn(
-          'kanban-card flex cursor-pointer items-center gap-x-2 gap-y-1 rounded-md p-2 text-xs',
-          DRAGGABLE_FOCUS,
+          'kanban-card flex w-full min-w-0 cursor-pointer items-center gap-x-2 gap-y-1 rounded-md p-2 text-start text-xs focus-visible:outline-2 focus-visible:outline-ring',
           multiline && 'flex-wrap',
           isDragging && 'opacity-40',
         )}
@@ -65,7 +65,7 @@ export const CalendarIssueCard = memo(function CalendarIssueCard({
           {issue.title}
         </span>
         {dayLabel && <span className="ms-auto shrink-0 text-muted-foreground">{dayLabel}</span>}
-      </div>
-    </IssueContextMenu>
+      </button>
+    </CalendarIssueTooltip>
   );
 });

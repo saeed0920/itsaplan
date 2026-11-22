@@ -96,6 +96,16 @@
     "permissions": "Permisos"
   },
   "invite": {
+    "sharedLink": "Shareable team link",
+    "sharedLinkHint": "Any signed-in account with this link can join as a member. Forward only to people you trust. Expires within 7 days; revoke it from pending invites.",
+    "createLink": "Create invite link",
+    "creatingLink": "Creating…",
+    "linkError": "Could not create invite link.",
+    "copyError": "Could not copy. Select the link and copy it manually.",
+    "workspacePeople": "Workspace people",
+    "loadingPeople": "Loading workspace people…",
+    "retryPeople": "Retry loading people",
+    "noPeople": "No matching workspace people. Enter an email or share an invite link.",
     "action": "Invitar al equipo",
     "title": "Invitar al equipo",
     "emailLabel": "Correo electrónico",
@@ -776,6 +786,10 @@
     "projectToggleAria": "Alternar el acceso de MCP para {project}"
   },
   "workspace": {
+    "weekStart": {
+      "title": "First day of week",
+      "description": "Week start for date pickers and default calendar views in this workspace’s projects."
+    },
     "rail": "Espacios de trabajo",
     "create": "Nuevo espacio de trabajo",
     "createUnavailableTitle": "Más espacios de trabajo",

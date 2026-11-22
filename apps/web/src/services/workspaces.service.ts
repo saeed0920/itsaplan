@@ -2,6 +2,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import {
   addWorkspaceAdmin,
   createWorkspaceScimToken,
+  createWorkspace,
+  getWorkspaceCreation,
   deleteWorkspace,
   getWorkspace,
   getWorkspaceScim,
@@ -22,6 +24,21 @@ export function useWorkspacesQuery() {
   return useQuery({ queryKey: qk.workspaces, queryFn: () => listWorkspaces() });
 }
 
+export function useWorkspaceCreationQuery() {
+  return useQuery({ queryKey: [...qk.workspaces, 'creation'], queryFn: getWorkspaceCreation });
+}
+
+export function useCreateWorkspace() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createWorkspace,
+    onSuccess: (workspace) => {
+      qc.setQueryData(qk.workspace(workspace.id), workspace);
+      void qc.invalidateQueries({ queryKey: qk.workspaces });
+    },
+  });
+}
+
 export function useWorkspaceQuery(workspaceId: number) {
   return useQuery({
     queryKey: qk.workspace(workspaceId),
@@ -33,9 +50,13 @@ export function useUpdateWorkspace(workspaceId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (patch: WorkspacePatch) => updateWorkspace(workspaceId, patch),
-    onSuccess: (workspace) => {
+    onSuccess: (workspace, patch) => {
       qc.setQueryData(qk.workspace(workspaceId), workspace);
       void qc.invalidateQueries({ queryKey: qk.workspaces });
+      if (patch.weekStart !== undefined) {
+        void qc.invalidateQueries({ queryKey: qk.anyProject });
+        void qc.invalidateQueries({ queryKey: qk.projects });
+      }
     },
   });
 }

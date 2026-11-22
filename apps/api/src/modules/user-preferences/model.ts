@@ -6,6 +6,7 @@ import { PALETTES } from './service';
 // t.UnionEnum defaults to its first value, which would reset the language on a patch that
 // leaves it out.
 const Locale = t.UnionEnum([...LOCALES], { default: undefined });
+const Calendar = t.Union([t.Literal('gregory'), t.Literal('persian')]);
 const Theme = t.Union([t.Literal('light'), t.Literal('dark'), t.Literal('system')]);
 const Palette = t.UnionEnum([...PALETTES], { default: undefined });
 // Lowercase only: the web app puts the colors in a cookie the server reads as written.
@@ -27,6 +28,7 @@ const IssueActivityView = t.Union([t.Literal('flat'), t.Literal('grouped')]);
 
 export const PreferenceResponse = t.Object({
   timezone: t.String(),
+  calendar: Calendar,
   locale: Locale,
   theme: Theme,
   palette: Palette,
@@ -45,6 +47,7 @@ export const PreferenceResponse = t.Object({
 
 export const PreferencePatch = t.Object({
   timezone: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
+  calendar: t.Optional(Calendar),
   locale: t.Optional(Locale),
   theme: t.Optional(Theme),
   palette: t.Optional(Palette),

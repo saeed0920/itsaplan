@@ -4,9 +4,11 @@ import { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { NextIntlClientProvider } from 'next-intl';
 import { JSDOM } from 'jsdom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import messages from '../../../../messages/en/common.json';
 
 const replacedGlobals = [
+  'fetch',
   'window',
   'document',
   'navigator',
@@ -28,6 +30,7 @@ const replacedGlobals = [
 
 let dom: JSDOM;
 let root: Root;
+let client: QueryClient;
 let originals: Map<string, PropertyDescriptor | undefined>;
 
 async function settle() {
@@ -38,9 +41,11 @@ async function openPicker() {
   const { default: DatePill } = await import('./DatePill');
   await act(async () =>
     root.render(
-      <NextIntlClientProvider locale="en" messages={{ common: messages }} timeZone="UTC">
-        <DatePill value={null} onChange={() => {}} />
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider locale="en" messages={{ common: messages }} timeZone="UTC">
+          <DatePill value={null} onChange={() => {}} />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     ),
   );
   await act(async () =>
@@ -65,8 +70,19 @@ beforeEach(async () => {
       });
     }
   }
+  Object.assign(dom.window, {
+    __ITSAPLAN_ENV__: { apiUrl: 'https://api.test' },
+  });
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   Object.defineProperties(globalThis, {
-    getComputedStyle: { configurable: true, value: dom.window.getComputedStyle.bind(dom.window) },
+    fetch: {
+      configurable: true,
+      value: async () => Response.json({ user: null, session: null }),
+    },
+    getComputedStyle: {
+      configurable: true,
+      value: dom.window.getComputedStyle.bind(dom.window),
+    },
     requestAnimationFrame: {
       configurable: true,
       value: dom.window.requestAnimationFrame.bind(dom.window),
@@ -91,6 +107,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await act(async () => root.unmount());
+  client.clear();
+  await new Promise((resolve) => setTimeout(resolve, 1100));
   dom.window.close();
   for (const [name, descriptor] of originals) {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);

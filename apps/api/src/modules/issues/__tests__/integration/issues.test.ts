@@ -1101,6 +1101,35 @@ describe('issues', () => {
       return client.projects({ projectKey }).issues.search.get({ query });
     }
 
+    it('returns status and cycle names with the due date', async () => {
+      const { asOwner, columnId } = await setupProject();
+      const project = (await asOwner.projects({ projectKey: 'MKT' }).get()).data!;
+      const cycle = (
+        await asOwner.projects({ projectKey: 'MKT' }).cycles.post({
+          name: 'Search sprint',
+          startDate: '2026-11-01',
+          endDate: '2026-11-30',
+        })
+      ).data!;
+      await createIssue(asOwner, columnId, {
+        title: 'Zephyr rollout',
+        cycleId: cycle.id,
+        dueDate: '2026-11-30',
+      });
+      await createIssue(asOwner, columnId, { title: 'Zephyr unplanned' });
+      const res = await search(asOwner, { q: 'zephyr' });
+      expect(res.status).toBe(200);
+      expect(res.data!.find((hit) => hit.title === 'Zephyr rollout')).toMatchObject({
+        columnName: project.columns.find((column) => column.id === columnId)!.name,
+        cycleName: 'Search sprint',
+        dueDate: new Date('2026-11-30T00:00:00.000Z'),
+      });
+      expect(res.data!.find((hit) => hit.title === 'Zephyr unplanned')).toMatchObject({
+        cycleName: null,
+        dueDate: null,
+      });
+    });
+
     it('returns the estimate in points', async () => {
       const { asOwner, columnId } = await setupProject();
       await createIssue(asOwner, columnId, { title: 'Zephyr rollout', estimatePoints: 3 });

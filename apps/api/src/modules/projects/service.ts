@@ -17,6 +17,7 @@ import {
   projectSetting,
   team,
   teamMember,
+  workspace,
   type DbExecutor,
 } from '@repo/db';
 import {
@@ -70,6 +71,7 @@ export interface ProjectRow {
   // The team's own MCP switch, carried here because every MCP gate is a project
   // gate: a project is reachable only while both flags are on.
   teamMcpEnabled: boolean;
+  workspaceWeekStart: number;
   initiativesEnabled: boolean;
   dashboardsEnabled: boolean;
   documentsEnabled: boolean;
@@ -121,6 +123,7 @@ type ProjectWithTeam = typeof project.$inferSelect & {
   teamSlug: string | null;
   teamMcpEnabled: boolean;
   workspaceId: number;
+  workspaceWeekStart?: number;
 };
 
 const projectWithTeam = {
@@ -129,6 +132,7 @@ const projectWithTeam = {
   teamSlug: team.slug,
   teamMcpEnabled: team.mcpEnabled,
   workspaceId: team.workspaceId,
+  workspaceWeekStart: sql<number>`(SELECT ${workspace.weekStart} FROM ${workspace} WHERE ${workspace.id} = ${team.workspaceId})`,
 };
 
 // A blocked section reads as off whatever the project has stored, so masking here is
@@ -149,6 +153,15 @@ export async function mapProject(row: ProjectWithTeam): Promise<ProjectRow> {
     description: row.description,
     mcpEnabled: row.mcpEnabled,
     teamMcpEnabled: row.teamMcpEnabled,
+    workspaceWeekStart:
+      row.workspaceWeekStart ??
+      (
+        await db
+          .select({ value: workspace.weekStart })
+          .from(workspace)
+          .where(eq(workspace.id, row.workspaceId))
+      )[0]?.value ??
+      0,
     initiativesEnabled: on('initiatives', row.initiativesEnabled),
     dashboardsEnabled: on('dashboards', row.dashboardsEnabled),
     documentsEnabled: on('documents', row.documentsEnabled),

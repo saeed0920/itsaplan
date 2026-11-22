@@ -1,0 +1,16 @@
+services:
+  migrate:
+    image: itsaplan-api:local
+    pull_policy: never
+  api:
+    image: itsaplan-api:local
+    pull_policy: never
+  web:
+    image: itsaplan-web:local
+    pull_policy: never
+  worker:
+    image: itsaplan-worker:local
+    pull_policy: never
+  bot:
+    image: itsaplan-bot:local
+    pull_policy: never

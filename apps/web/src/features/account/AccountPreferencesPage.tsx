@@ -77,6 +77,17 @@ export default function AccountPreferencesPage() {
       </AccountPreferencesSection>
 
       <AccountPreferencesSection id="date-and-time" title={t('sections.dateAndTime')}>
+        <AccountPreferenceRow label={t('calendar')} description={t('calendarDescription')}>
+          <AccountPreferenceSelect
+            value={prefs.calendar}
+            options={(['gregory', 'persian'] as const).map((value) => ({
+              value,
+              label: t(`calendarOptions.${value}`),
+            }))}
+            onChange={(calendar) => save({ calendar })}
+            disabled={disabled}
+          />
+        </AccountPreferenceRow>
         <AccountPreferenceRow label={t('timezone')} description={t('timezoneDescription')}>
           <AccountPreferencesTimezone
             value={prefs.timezone}

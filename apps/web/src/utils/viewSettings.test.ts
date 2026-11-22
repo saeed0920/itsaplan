@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { DEFAULT_LOCALE } from '@/i18n/locales';
-import { setDisplayLocale } from './dates';
 import { defaultViewSettings, normalizeSavedDisplay } from './viewSettings';
 
 describe('normalizeSavedDisplay', () => {
@@ -32,14 +30,10 @@ describe('normalizeSavedDisplay', () => {
   });
 });
 
-describe('defaultViewSettings', () => {
-  it('starts the week on Monday, and on Saturday in Persian', () => {
-    assert.equal(defaultViewSettings('calendar').weekStart, 1);
-    setDisplayLocale('fa');
-    try {
-      assert.equal(defaultViewSettings('calendar').weekStart, 6);
-    } finally {
-      setDisplayLocale(DEFAULT_LOCALE);
-    }
-  });
+it('keeps explicit saved week starts and inherits for unset or invalid settings', () => {
+  assert.equal(defaultViewSettings('calendar').weekStart, null);
+  for (const day of [0, 1, 6]) {
+    assert.equal(normalizeSavedDisplay({ weekStart: day }).weekStart, day);
+  }
+  assert.equal(normalizeSavedDisplay({ weekStart: 5 }).weekStart, null);
 });

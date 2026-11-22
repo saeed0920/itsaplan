@@ -1,5 +1,5 @@
 import { ancestorIds, db, issue, project as projectTable, subtreeIds } from '@repo/db';
-import { and, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { HttpError } from '#shared/lib';
 import { archiveIssue, assertTreeLink, deleteIssue, restoreIssue, updateIssue } from './service';
@@ -162,8 +162,9 @@ export async function disposeSubtasksOf(
   action: 'delete' | 'archive',
   disposition: SubtaskDisposition | undefined,
   actorUserId?: string | null,
+  archiveId?: number | null,
 ): Promise<AttachmentRow[]> {
-  const parents = await issuesWithSubtasks(projectId, issueIds);
+  const parents = await issuesWithSubtasks(projectId, issueIds, action === 'archive');
   if (parents.length === 0) return [];
   if (!disposition)
     throw new HttpError(409, 'Choose what happens to the subtasks: cascade, detach or reassign');
@@ -183,13 +184,18 @@ export async function disposeSubtasksOf(
         disposition.mode,
         newParentId,
         actorUserId,
+        archiveId,
       )),
     );
   return attachments;
 }
 
 // The ids of the project's issues that have subtasks, out of the given set.
-async function issuesWithSubtasks(projectId: number, ids: number[]): Promise<number[]> {
+async function issuesWithSubtasks(
+  projectId: number,
+  ids: number[],
+  activeOnly: boolean,
+): Promise<number[]> {
   if (ids.length === 0) return [];
   const parent = alias(issue, 'parent_issue');
   const rows = await db
@@ -201,6 +207,7 @@ async function issuesWithSubtasks(projectId: number, ids: number[]): Promise<num
         inArray(issue.parentId, ids),
         eq(parent.projectId, projectId),
         eq(issue.projectId, projectId),
+        activeOnly ? isNull(parent.archivedAt) : undefined,
       ),
     );
   return rows.flatMap((row) => (row.parentId === null ? [] : [row.parentId]));
@@ -215,9 +222,10 @@ async function disposeSubtasks(
   mode: SubtaskMode,
   newParentId: number | null,
   actorUserId?: string | null,
+  archiveId?: number | null,
 ): Promise<AttachmentRow[]> {
   if (mode === 'cascade')
-    return cascade(projectId, issueId, action, new Set([issueId]), actorUserId);
+    return cascade(projectId, issueId, action, new Set([issueId]), actorUserId, archiveId);
 
   // 'detach' clears the parent, 'reassign' points it at newParentId. The rules
   // that link has to hold (same project, no cycle, the depth limit) are enforced
@@ -235,15 +243,18 @@ async function cascade(
   action: 'delete' | 'archive',
   seen: Set<number>,
   actorUserId?: string | null,
+  archiveId?: number | null,
 ): Promise<AttachmentRow[]> {
   const attachments: AttachmentRow[] = [];
   for (const subtask of await subtasksInProject(projectId, issueId)) {
     if (seen.has(subtask.id)) continue;
     seen.add(subtask.id);
-    attachments.push(...(await cascade(projectId, subtask.id, action, seen, actorUserId)));
+    attachments.push(
+      ...(await cascade(projectId, subtask.id, action, seen, actorUserId, archiveId)),
+    );
     if (action === 'delete')
       attachments.push(...((await deleteIssue(subtask.id, actorUserId)) ?? []));
-    else await archiveIssue(subtask.id, actorUserId);
+    else if (!subtask.archived) await archiveIssue(subtask.id, actorUserId, archiveId);
   }
   return attachments;
 }

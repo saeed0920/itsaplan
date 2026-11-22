@@ -17,6 +17,7 @@ import { qk } from '@/services/queryKeys';
 
 export const PREFERENCE_DEFAULTS: AccountPreferences = {
   timezone: 'UTC',
+  calendar: 'gregory',
   locale: 'en',
   theme: 'system',
   palette: 'default',

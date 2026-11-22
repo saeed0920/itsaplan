@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { ProjectDetail } from '@/lib/api/endpoints/projects';
 import type { Issue, IssuePatch } from '@/lib/api/endpoints/issues';
 import { parseDate } from '@/utils/dates';
+import { issueAssigneeIds } from '@/utils/assignees';
 import AssigneeSelect from '@/components/common/fields/AssigneeSelect';
 import DatePill from '@/components/common/fields/DatePill';
 import LabelsSelect from '@/components/common/fields/LabelsSelect';
@@ -77,8 +78,10 @@ function builtinEditor(
       return (
         <AssigneeSelect
           assignees={project.assignees}
-          value={issue.assigneeUserId}
-          onChange={(userId) => onPatch({ assigneeUserId: userId })}
+          multiple
+          issueId={issue.id}
+          value={issueAssigneeIds(issue)}
+          onChange={(assigneeUserIds) => onPatch({ assigneeUserIds })}
           trigger={trigger}
         />
       );

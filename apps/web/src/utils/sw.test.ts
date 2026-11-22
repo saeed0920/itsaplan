@@ -42,7 +42,7 @@ beforeEach(() => {
     skipWaiting: async () => {},
     registration: {
       showNotification: async (title: string, options: Record<string, unknown>) =>
-        void shown.push({ title, options }),
+        void shown.push({ title, options: structuredClone(options) }),
     },
     clients: {
       claim: async () => {},
@@ -56,7 +56,10 @@ beforeEach(() => {
 // Runs one event through the worker and waits for what it handed to waitUntil.
 async function dispatch(type: string, event: Record<string, unknown>) {
   let pending: Promise<unknown> = Promise.resolve();
-  listeners.get(type)!({ ...event, waitUntil: (work: Promise<unknown>) => (pending = work) });
+  listeners.get(type)!({
+    ...event,
+    waitUntil: (work: Promise<unknown>) => (pending = work),
+  });
   await pending;
 }
 
@@ -66,7 +69,9 @@ const push = (data: string) =>
   });
 
 const click = (url: unknown) =>
-  dispatch('notificationclick', { notification: { data: { url }, close: () => {} } });
+  dispatch('notificationclick', {
+    notification: { data: { url }, close: () => {} },
+  });
 
 describe('sw.js', () => {
   it('shows a push with its tag, its url and the app icon', async () => {

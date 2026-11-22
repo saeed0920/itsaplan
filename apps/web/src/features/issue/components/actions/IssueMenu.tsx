@@ -1,6 +1,8 @@
+import { issueAssigneeIds, toggleAssignee } from '@/utils/assignees';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useCalendar } from '@/hooks/useCalendar';
 import {
   Archive,
   ArchiveRestore,
@@ -35,7 +37,7 @@ import { buildIssueBranchName, buildIssuePrompt } from '../../utils/issuePrompt'
 import { writeClipboardText } from '../../utils/clipboard';
 import { delegatableAgents } from '../../utils/delegates';
 import { useSession } from '@/lib/auth-client';
-import { calendarSystem, toDateStr } from '@/utils/dates';
+import { toDateStr } from '@/utils/dates';
 import { colorDot } from '@/components/common/fields/colorDot';
 import { PRIORITY_FIELDS } from '@/components/common/fields/priorityFields';
 import { StateIcon } from '../shared/IssueIcons';
@@ -69,6 +71,7 @@ export default function IssueMenu({
 }) {
   const t = useTranslations('issue.menu');
   const format = useFormatter();
+  const { calendar } = useCalendar();
   const tCommon = useTranslations('common');
   const { can } = usePermissions();
   const { data: session } = useSession();
@@ -199,19 +202,23 @@ export default function IssueMenu({
                   {t('assignee')}
                 </ContextMenuSubTrigger>
                 <ContextMenuSubContent className="w-56">
-                  <ContextMenuItem onSelect={() => patch({ assigneeUserId: null })}>
+                  <ContextMenuItem onSelect={() => patch({ assigneeUserIds: [] })}>
                     <CircleDashed />
                     <span className="flex-1">{t('noAssignee')}</span>
-                    <SelectedCheck selected={issue.assigneeUserId == null} />
+                    <SelectedCheck selected={issueAssigneeIds(issue).length === 0} />
                   </ContextMenuItem>
                   {members.map((a) => (
                     <ContextMenuItem
                       key={a.userId}
-                      onSelect={() => patch({ assigneeUserId: a.userId })}
+                      onSelect={() =>
+                        patch({
+                          assigneeUserIds: toggleAssignee(issueAssigneeIds(issue), a.userId),
+                        })
+                      }
                     >
                       <User />
                       <span className="flex-1 truncate">{a.name}</span>
-                      <SelectedCheck selected={a.userId === issue.assigneeUserId} />
+                      <SelectedCheck selected={issueAssigneeIds(issue).includes(a.userId)} />
                     </ContextMenuItem>
                   ))}
                 </ContextMenuSubContent>
@@ -308,7 +315,7 @@ export default function IssueMenu({
                         weekday: 'short',
                         month: 'short',
                         day: 'numeric',
-                        calendar: calendarSystem(),
+                        calendar,
                       })}
                     </ContextMenuShortcut>
                   </ContextMenuItem>

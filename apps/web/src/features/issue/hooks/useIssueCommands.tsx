@@ -1,3 +1,4 @@
+import { issueAssigneeIds, toggleAssignee } from '@/utils/assignees';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
@@ -19,7 +20,7 @@ import type { ActionDef } from '@/lib/api/endpoints/actions';
 import type { ProjectDetail } from '@/lib/api/endpoints/projects';
 import type { IssuePatch } from '@/lib/api/endpoints/issues';
 import { actionIcon } from '@/utils/actionIcons';
-import { calendarSystem, toDateStr } from '@/utils/dates';
+import { toDateStr } from '@/utils/dates';
 import { useActionsQuery } from '@/services/actions.service';
 import { useIssueQuery, useRestoreIssue, useUpdateIssue } from '@/services/issues.service';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -27,6 +28,7 @@ import { useSession } from '@/lib/auth-client';
 import { useShell } from '@/context/shellContext';
 import { colorDot } from '@/components/common/fields/colorDot';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useCalendar } from '@/hooks/useCalendar';
 import { PRIORITY_FIELDS } from '@/components/common/fields/priorityFields';
 import { usePriorityLabel } from '@/hooks/usePriorityLabel';
 import type { Command, CommandSection } from '@/utils/commands';
@@ -57,6 +59,7 @@ export function useIssueCommands(
   const t = useTranslations('issue.commands');
   const tPriority = useTranslations('common.priority');
   const format = useFormatter();
+  const { calendar } = useCalendar();
   const priorityLabel = usePriorityLabel();
   const presetLabel = useDueDatePresetLabel();
   const { onOpenIssue } = useShell();
@@ -191,15 +194,16 @@ export function useIssueCommands(
               id: 'issue.assignee.none',
               label: t('noAssignee'),
               icon: <CircleDashed />,
-              checked: issue.assigneeUserId == null,
-              run: () => patch({ assigneeUserId: null }),
+              checked: issueAssigneeIds(issue).length === 0,
+              run: () => patch({ assigneeUserIds: [] }),
             },
             ...members.map((a) => ({
               id: `issue.assignee.${a.userId}`,
               label: a.name,
               icon: <User />,
-              checked: a.userId === issue.assigneeUserId,
-              run: () => patch({ assigneeUserId: a.userId }),
+              checked: issueAssigneeIds(issue).includes(a.userId),
+              run: () =>
+                patch({ assigneeUserIds: toggleAssignee(issueAssigneeIds(issue), a.userId) }),
             })),
           ],
         },
@@ -252,7 +256,7 @@ export function useIssueCommands(
               weekday: 'short',
               month: 'short',
               day: 'numeric',
-              calendar: calendarSystem(),
+              calendar,
             }),
             run: () => patch({ dueDate: toDateStr(p.date) }),
           })),

@@ -141,6 +141,12 @@
     "language": "Bahasa",
     "languageDescription": "Bahasa antarmuka, email Anda, dan bot Telegram.",
     "timezone": "Zona waktu",
+    "calendar": "Calendar system",
+    "calendarDescription": "Calendar for displaying and selecting dates, independent of interface language.",
+    "calendarOptions": {
+      "gregory": "Gregorian",
+      "persian": "Persian (Solar Hijri)"
+    },
     "timezoneDescription": "Semua tanggal dan waktu di aplikasi ditampilkan dalam zona ini.",
     "timezonePlaceholder": "Pilih zona waktu",
     "timezoneEmpty": "Tidak ada zona waktu yang ditemukan.",

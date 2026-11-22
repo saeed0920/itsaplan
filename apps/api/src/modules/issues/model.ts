@@ -104,6 +104,7 @@ export const IssueResponse = t.Object({
   // through cycleId.
   cycle: t.Nullable(t.Object({ id: t.Number(), name: t.String(), status: t.String() })),
   assigneeUserId: t.Nullable(t.String()),
+  assigneeUserIds: t.Array(t.String()),
   delegateUserId: t.Nullable(t.String()),
   columnId: t.Number(),
   // The issue this one is a subtask of, or null. Create and update set it.
@@ -122,6 +123,7 @@ export const IssueResponse = t.Object({
   createdAt: t.String(),
   updatedAt: t.String(),
   archivedAt: t.Nullable(t.String()),
+  archiveId: t.Nullable(t.Number()),
   statusSince: t.String(),
   shareToken: t.Nullable(t.String()),
   shareExtended: t.Boolean(),
@@ -333,6 +335,8 @@ export const BoardIssueResponse = t.Composite([
 // IssueSearchHit from the service: a light search result. It carries no description
 // and no field values.
 export const IssueSearchHitResponse = t.Object({
+  columnName: t.Nullable(t.String()),
+  cycleName: t.Nullable(t.String()),
   id: t.Number(),
   sequenceNumber: t.Number(),
   identifier: t.String(),
@@ -344,6 +348,7 @@ export const IssueSearchHitResponse = t.Object({
   parentId: t.Nullable(t.Number()),
   parent: t.Nullable(t.Object({ id: t.Number(), identifier: t.String(), title: t.String() })),
   assigneeUserId: t.Nullable(t.String()),
+  assigneeUserIds: t.Array(t.String()),
   delegateUserId: t.Nullable(t.String()),
   priority: t.Nullable(t.String()),
   dueDate: t.Nullable(t.String()),
@@ -465,7 +470,17 @@ export const IssueCycleResponse = t.Object({
 
 export const projectKeyParams = t.Object({ projectKey: t.String() });
 
+const assigneeUserIds = t.Optional(
+  t.Array(t.String({ minLength: 1 }), {
+    maxItems: 100,
+    uniqueItems: true,
+    description:
+      'All assigned project member ids, primary first. Empty clears assignments. Do not send with assigneeUserId.',
+  }),
+);
+
 export const createIssueBody = t.Object({
+  assigneeUserIds,
   typeId: t.Optional(t.Nullable(t.Integer({ description: 'Issue type id from get_project.' }))),
   initiativeId: t.Optional(
     t.Nullable(
@@ -521,6 +536,7 @@ export const createIssueBody = t.Object({
 export const bulkUpdateIssuesBody = t.Object({
   ids: t.Array(t.Integer(), { minItems: 1, description: 'Issue ids to update.' }),
   patch: t.Object({
+    assigneeUserIds,
     columnId: t.Optional(t.Integer()),
     typeId: t.Optional(t.Nullable(t.Integer())),
     initiativeId: t.Optional(t.Nullable(t.Integer())),
@@ -540,7 +556,21 @@ export const bulkAddLabelsBody = t.Object({
   add: t.Array(t.Integer(), { minItems: 1, description: 'Label ids to add.' }),
 });
 
+const ArchiveId = t.Optional(t.Nullable(t.Integer({ minimum: 1 })));
+
+export const IssueArchiveBody = t.Object({
+  name: t.String({ minLength: 1, maxLength: 80, pattern: '\\S' }),
+});
+export const issueArchiveParams = t.Object({ projectKey: t.String(), archiveId: t.Numeric() });
+export const IssueArchiveResponse = t.Object({
+  id: t.Number(),
+  projectId: t.Number(),
+  name: t.String(),
+  createdAt: t.String(),
+});
+
 export const bulkArchiveIssuesBody = t.Object({
+  archiveId: ArchiveId,
   ids: t.Array(t.Integer(), { minItems: 1, description: 'Issue ids to archive.' }),
   subtasks: t.Optional(SubtaskModeSchema),
   newParentId: t.Optional(NewParentIdSchema),
@@ -653,6 +683,7 @@ export const moveIssueBody = t.Object({
 });
 
 export const updateIssueBody = t.Object({
+  assigneeUserIds,
   columnId: t.Optional(t.Integer({ description: 'Column id to move the issue to.' })),
   position: t.Optional(t.Number({ description: 'Position in the column.' })),
   typeId: t.Optional(t.Nullable(t.Integer())),
@@ -771,6 +802,7 @@ export const reactionParams = t.Object({
 
 export const archiveIssueBody = t.Optional(
   t.Object({
+    archiveId: ArchiveId,
     subtasks: t.Optional(SubtaskModeSchema),
     newParentId: t.Optional(NewParentIdSchema),
   }),

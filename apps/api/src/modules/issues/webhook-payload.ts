@@ -46,7 +46,9 @@ export async function issuePayloads(issues: IssueRow[]) {
           .where(inArray(projectColumn.id, ids)),
     ),
     byIds(
-      issues.flatMap((i) => [i.assigneeUserId, i.delegateUserId]).filter((id) => id !== null),
+      issues
+        .flatMap((i) => [...(i.assigneeUserIds ?? [i.assigneeUserId]), i.delegateUserId])
+        .filter((id) => id !== null),
       (ids) => db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, ids)),
     ),
     byIds(
@@ -78,6 +80,7 @@ export async function issuePayloads(issues: IssueRow[]) {
     url: urls.get(i.projectId)?.(i.sequenceNumber) ?? null,
     state: columnById.get(i.columnId) ?? null,
     assignee: person(i.assigneeUserId),
+    assignees: (i.assigneeUserIds ?? []).map(person),
     delegate: person(i.delegateUserId),
     issueType: i.typeId === null ? null : (typeById.get(i.typeId) ?? null),
     labels: i.labelIds.flatMap((id) => labelById.get(id) ?? []),

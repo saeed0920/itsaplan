@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "dev-plane",
+      "name": "itsaplan",
       "devDependencies": {
         "@clack/prompts": "^1.8.1",
         "@repo/eslint-config": "workspace:*",
@@ -63,6 +63,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@repo/db": "workspace:*",
+        "@repo/net": "workspace:*",
         "drizzle-orm": "^0.45.4",
         "grammy": "^1.46.0",
       },

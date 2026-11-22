@@ -62,6 +62,7 @@ export function CalendarDayCell({
         ))}
         {issues.length > MAX_CHIPS && (
           <CalendarDayOverflow
+            project={project}
             issues={issues}
             hidden={issues.length - MAX_CHIPS}
             dot={dot}

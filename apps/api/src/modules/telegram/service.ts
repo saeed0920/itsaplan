@@ -9,6 +9,7 @@ import {
 } from '@repo/db';
 import { eq, inArray } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
+import { telegramFetch } from '@repo/net/telegram';
 
 // The instance Telegram bot and the account links it creates.
 //
@@ -64,7 +65,7 @@ export async function getInstanceBotSettings(): Promise<InstanceBotDto> {
 export async function fetchBotUsername(botToken: string): Promise<string> {
   let res: Response;
   try {
-    res = await fetch(`https://api.telegram.org/bot${botToken}/getMe`, {
+    res = await telegramFetch(`https://api.telegram.org/bot${botToken}/getMe`, {
       signal: AbortSignal.timeout(15_000),
     });
   } catch {
@@ -135,7 +136,10 @@ export async function getTelegramLink(userId: string): Promise<TelegramLink | nu
 export async function getTelegramChatIds(userIds: string[]): Promise<Map<string, string>> {
   if (userIds.length === 0) return new Map();
   const rows = await db
-    .select({ userId: userTelegramAccount.userId, chatId: userTelegramAccount.chatId })
+    .select({
+      userId: userTelegramAccount.userId,
+      chatId: userTelegramAccount.chatId,
+    })
     .from(userTelegramAccount)
     .where(inArray(userTelegramAccount.userId, userIds));
   const map = new Map<string, string>();

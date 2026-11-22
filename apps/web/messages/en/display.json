@@ -65,6 +65,7 @@
     "byWeek": "By week"
   },
   "weekStart": {
+    "default": "Workspace default",
     "6": "Saturday",
     "0": "Sunday",
     "1": "Monday"

@@ -1,4 +1,6 @@
 import { Elysia, t, type DocumentDecoration } from 'elysia';
+import { listIssueArchives, saveIssueArchive, assertIssueArchive } from './archives';
+import { IssueArchiveBody, IssueArchiveResponse, issueArchiveParams } from './model';
 import { listIssueAgentRuns, getIssueAgentRunTrace } from './agent-runs';
 import { mcpTool } from '#mcp/generate';
 import { noContent } from '#shared/http';
@@ -402,8 +404,16 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
     '/projects/:projectKey/issues/bulk/archive',
     async ({ project, body, user }) => {
       const actorUserId = requireUser(user).id;
-      await disposeSubtasksOf(project.id, body.ids, 'archive', disposition(body), actorUserId);
-      const archived = await bulkArchiveIssues(project.id, body.ids, actorUserId);
+      await assertIssueArchive(project.id, body.archiveId);
+      await disposeSubtasksOf(
+        project.id,
+        body.ids,
+        'archive',
+        disposition(body),
+        actorUserId,
+        body.archiveId,
+      );
+      const archived = await bulkArchiveIssues(project.id, body.ids, actorUserId, body.archiveId);
       return { archived };
     },
     {
@@ -558,6 +568,39 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
       permission: ['work_items', 'read'],
       response: { 200: t.Array(SubtreeIssueResponse), ...commonErrors },
       detail: { summary: 'List the issues under issues' },
+    },
+  )
+
+  .get('/projects/:projectKey/archives', ({ project }) => listIssueArchives(project.id), {
+    params: projectKeyParams,
+    permission: ['work_items', 'read'],
+    response: { 200: t.Array(IssueArchiveResponse), ...accessErrors },
+    detail: { summary: 'List issue archive collections' },
+  })
+  .post(
+    '/projects/:projectKey/archives',
+    async ({ project, body, set }) => {
+      const archive = await saveIssueArchive(project.id, body.name);
+      set.status = 201;
+      return archive;
+    },
+    {
+      params: projectKeyParams,
+      body: IssueArchiveBody,
+      permission: ['work_items', 'edit'],
+      response: { 201: IssueArchiveResponse, ...commonErrors, ...errors(409) },
+      detail: { summary: 'Create an issue archive collection' },
+    },
+  )
+  .patch(
+    '/projects/:projectKey/archives/:archiveId',
+    ({ project, params, body }) => saveIssueArchive(project.id, body.name, params.archiveId),
+    {
+      params: issueArchiveParams,
+      body: IssueArchiveBody,
+      permission: ['work_items', 'edit'],
+      response: { 200: IssueArchiveResponse, ...commonErrors, ...errors(409) },
+      detail: { summary: 'Rename an issue archive collection' },
     },
   )
 
@@ -1004,14 +1047,16 @@ export const issueRoutes = new Elysia({ name: 'issues', detail: { tags: ['Issues
     '/issues/:issueId/archive',
     async ({ params, body, user, projectId }) => {
       const actorUserId = requireUser(user).id;
+      await assertIssueArchive(projectId, body?.archiveId);
       await disposeSubtasksOf(
         projectId,
         [params.issueId],
         'archive',
         disposition(body),
         actorUserId,
+        body?.archiveId,
       );
-      const issue = await archiveIssue(params.issueId, actorUserId);
+      const issue = await archiveIssue(params.issueId, actorUserId, body?.archiveId);
       if (!issue) throw new HttpError(404, 'Issue not found');
       return issue;
     },

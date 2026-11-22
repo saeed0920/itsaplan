@@ -65,6 +65,7 @@
     "byWeek": "按周"
   },
   "weekStart": {
+    "default": "Workspace default",
     "6": "周六",
     "0": "周日",
     "1": "周一"

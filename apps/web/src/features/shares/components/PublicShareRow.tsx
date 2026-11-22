@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useCalendar } from '@/hooks/useCalendar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { type ShareKind, useRevokeShare } from '../services/shares.service';
@@ -29,6 +30,8 @@ export default function PublicShareRow({
 }) {
   const t = useTranslations('common.share');
   const format = useFormatter();
+  const { calendar } = useCalendar();
+
   const revoke = useRevokeShare(projectKey);
 
   return (
@@ -50,6 +53,7 @@ export default function PublicShareRow({
         {row.expiresAt
           ? t('expiresOn', {
               date: format.dateTime(new Date(row.expiresAt), {
+                calendar,
                 dateStyle: 'medium',
                 timeStyle: 'short',
               }),

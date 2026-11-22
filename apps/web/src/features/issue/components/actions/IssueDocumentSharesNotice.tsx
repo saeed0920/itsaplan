@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { FileText } from 'lucide-react';
 import { useFormatter, useTranslations } from 'next-intl';
+import { useCalendar } from '@/hooks/useCalendar';
 import type { IssueDocumentShare } from '@/lib/api/endpoints/share';
 import { documentPath } from '@/utils/paths';
 
@@ -14,6 +15,8 @@ export default function IssueDocumentSharesNotice({
 }) {
   const t = useTranslations('common.share');
   const format = useFormatter();
+  const { calendar } = useCalendar();
+
   if (shares.length === 0) return null;
 
   return (
@@ -36,6 +39,7 @@ export default function IssueDocumentSharesNotice({
               {share.expiresAt
                 ? t('expiresOn', {
                     date: format.dateTime(new Date(share.expiresAt), {
+                      calendar,
                       dateStyle: 'medium',
                       timeStyle: 'short',
                     }),
