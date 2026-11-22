@@ -8,7 +8,7 @@ import { PALETTES, THEMES, customThemeFrom, paletteName, type Palette } from '@/
 
 // The theme and palette options, and the preference patch that picks a palette. Shared by
 // the preferences page and the header's interface menu.
-export function useColorThemeChoice(prefs: AccountPreferences) {
+export function useColorThemeChoice(prefs: Pick<AccountPreferences, 'palette' | 'customTheme'>) {
   const t = useTranslations('account.preferences');
   const { resolvedTheme } = useTheme();
 
@@ -22,6 +22,7 @@ export function useColorThemeChoice(prefs: AccountPreferences) {
   }));
 
   const patchFor = (palette: Palette): AccountPreferencesPatch => {
+    if (palette === 'puzzley') return { palette, theme: 'light' };
     if (palette !== 'custom' || prefs.customTheme) return { palette };
     // The first custom palette starts from the colors on screen.
     const from = prefs.palette === 'custom' ? 'default' : prefs.palette;

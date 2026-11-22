@@ -69,10 +69,12 @@ describe('custom theme text', () => {
 describe('color theme cookie', () => {
   it('round-trips a palette and a custom theme', () => {
     const custom = { accent: '#5e6ad2', background: '#101012', contrast: 30 };
-    assert.deepEqual(parseColorThemeCookie(colorThemeCookieValue('nord', custom)), {
-      palette: 'nord',
-      custom: null,
-    });
+    for (const palette of ['nord', 'puzzley', 'charbug'] as const) {
+      assert.deepEqual(parseColorThemeCookie(colorThemeCookieValue(palette, custom)), {
+        palette,
+        custom: null,
+      });
+    }
     assert.deepEqual(parseColorThemeCookie(colorThemeCookieValue('custom', custom)), {
       palette: 'custom',
       custom,

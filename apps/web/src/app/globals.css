@@ -5,6 +5,7 @@
    apart at the 12–14px this UI is mostly set in. It also carries the opsz
    axis, so small text gets the wider-spaced optical master. */
 @import 'inter-ui/inter-variable.css';
+@import './fork-palettes.css';
 
 @custom-variant dark (&:is(.dark *));
 

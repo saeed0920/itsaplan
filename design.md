@@ -1,5 +1,15 @@
 # Plan UI extensions
 
+## Fork color palettes
+
+Puzzley uses the site's `#155dfc` blue on white content and mist-blue navigation. Choosing
+Puzzley selects light mode; the theme picker can still switch it to dark. Charbug uses the
+resolver's charcoal surfaces and `#93c5fd` accent in dark mode. Its light mode pairs warm-gray
+surfaces and charcoal text with a deep-blue action color and soft-blue selection.
+Both use the existing account palette picker, theme mode,
+semantic colors, and focus states. Keep the default palette and layout unchanged. Verify
+light and dark rendering, text contrast and palette persistence after reload.
+
 ## Search and calendar issue details
 
 Search results show status, cycle and due date below the title, omitting unset values.

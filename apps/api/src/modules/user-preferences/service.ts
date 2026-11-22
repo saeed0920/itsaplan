@@ -20,6 +20,8 @@ export const PALETTES = [
   'one',
   'tomorrow',
   'nightfox',
+  'puzzley',
+  'charbug',
   'custom',
 ] as const;
 export const ISSUE_OPEN_MODES = ['panel', 'page'] as const;

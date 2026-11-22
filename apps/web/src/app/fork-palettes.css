@@ -1,0 +1,75 @@
+:root:is([data-palette='puzzley'], [data-palette='charbug']) {
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--accent);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--accent);
+  --accent-foreground: var(--foreground);
+  --input: var(--border);
+  --ring: var(--primary);
+  --chart-1: var(--primary);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --kanban-column: var(--accent);
+  --kanban-column-raised: var(--background);
+  --kanban-card: var(--card);
+  --kanban-card-hover: color-mix(in oklab, var(--primary) 7%, var(--card));
+  --kanban-card-selected: color-mix(in oklab, var(--primary) 18%, var(--card));
+}
+
+:root[data-palette='puzzley'] {
+  --background: #fbfcff;
+  --foreground: #17233a;
+  --card: #ffffff;
+  --primary: #155dfc;
+  --primary-foreground: #ffffff;
+  --accent: #e9f1ff;
+  --muted-foreground: #495e7b;
+  --border: #d2def2;
+  --sidebar: #f3f7ff;
+}
+
+:root[data-palette='puzzley'].dark {
+  --background: #101a2e;
+  --foreground: #edf4ff;
+  --card: #18253d;
+  --primary: #93bdff;
+  --primary-foreground: #101a2e;
+  --accent: #23385a;
+  --muted-foreground: #b1c2de;
+  --border: #374c6e;
+  --sidebar: #121e34;
+}
+
+:root[data-palette='charbug'] {
+  --background: #f7f6f3;
+  --foreground: #232323;
+  --card: #ffffff;
+  --primary: #255085;
+  --primary-foreground: #ffffff;
+  --accent: #edebe6;
+  --muted-foreground: #55534f;
+  --border: #d5d1c9;
+  --sidebar: #f0eee9;
+  --sidebar-accent: #e3edfa;
+  --kanban-card-selected: #dceafb;
+}
+
+:root[data-palette='charbug'].dark {
+  --background: #1e1e1e;
+  --foreground: #f0f0f0;
+  --card: #2a2a2a;
+  --card-foreground: #ffffff;
+  --primary: #93c5fd;
+  --primary-foreground: #1e1e1e;
+  --accent: #363d47;
+  --muted-foreground: #c6ccd4;
+  --border: #474b51;
+  --sidebar: #242424;
+}

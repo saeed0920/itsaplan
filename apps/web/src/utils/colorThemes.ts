@@ -15,6 +15,8 @@ export const PALETTES = [
   'one',
   'tomorrow',
   'nightfox',
+  'puzzley',
+  'charbug',
   'custom',
 ] as const;
 
@@ -39,6 +41,8 @@ const BUILT_IN: Record<
   one: { name: 'One', light: ['#fafafa', '#376ee8'], dark: ['#282c34', '#61afef'] },
   tomorrow: { name: 'Tomorrow', light: ['#fafafa', '#4271ae'], dark: ['#1d1f21', '#81a2be'] },
   nightfox: { name: 'Nightfox', light: ['#f6f2ee', '#2848a9'], dark: ['#192330', '#719cd6'] },
+  puzzley: { name: 'Puzzley', light: ['#fbfcff', '#155dfc'], dark: ['#101a2e', '#93bdff'] },
+  charbug: { name: 'Charbug', light: ['#f7f6f3', '#255085'], dark: ['#1e1e1e', '#93c5fd'] },
 };
 
 export const paletteName = (palette: BuiltInPalette) => BUILT_IN[palette].name;
