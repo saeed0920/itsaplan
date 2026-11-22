@@ -38,8 +38,9 @@ For each upstream release:
 2. `ourFeature` is the fork's ongoing release branch. For the initial clean-history rebuild,
    start `ourFeature` at the pinned upstream tag and replay only reviewed fork changes in
    clearly named commits. Preserve existing refs and never force-push. For later updates,
-   merge the pinned upstream tag into a release worktree and fast-forward `ourFeature` after
-   approval. Rebase only unpublished work. Check tag ancestry and compare imported changes by
+   merge the pinned upstream tag into a worktree based on `ourFeature`. Promote the locally
+   accepted candidate by fast-forwarding `ourFeature`; use that same candidate for the VPS.
+   Repeat this workflow for every upstream release and fork-only release. Rebase only unpublished work. Check tag ancestry and compare imported changes by
    content: a fork commit can include upstream changes without containing the tag in its history.
 3. Review both Git conflicts and behavior overlaps, including clean merges. Check fork features,
    permissions, translations, deployment overrides, and migration order and identity against the
@@ -69,7 +70,7 @@ possible. Give the user specific manual test steps and stop for their testing.
 
 The user must confirm the feature passed their local tests. Agent checks cannot replace this.
 If code changes after testing, repeat checks, local deployment approval, and user acceptance
-for the changed candidate.
+for the changed candidate. Record acceptance against the exact tested SHA or source hashes.
 
 Present the exact release scope and target branch, proposed commit message, production URL,
 backup coverage, expected downtime, migration risks, and rollback limits. Ask explicitly:
