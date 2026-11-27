@@ -39,6 +39,7 @@ export default function SettingsStates({ project }: { project: ProjectDetail }) 
     mode: 'soft',
   });
   const [editAutoAssign, setEditAutoAssign] = useState<string | null>(null);
+  const [editAutoAddAssignees, setEditAutoAddAssignees] = useState<string[]>([]);
   const [deleting, setDeleting] = useState<Column | null>(null);
   const t = useTranslations('settings.states');
   const tCommon = useTranslations('common');
@@ -101,6 +102,7 @@ export default function SettingsStates({ project }: { project: ProjectDetail }) 
     setEditColor(c.color);
     setEditWip({ limit: c.wipLimit, mode: c.wipMode });
     setEditAutoAssign(c.autoAssignUserId);
+    setEditAutoAddAssignees(c.autoAddAssigneeUserIds);
   }
 
   async function saveEdit(c: Column) {
@@ -113,6 +115,7 @@ export default function SettingsStates({ project }: { project: ProjectDetail }) 
         wipLimit: editWip.limit,
         wipMode: editWip.mode,
         autoAssignUserId: editAutoAssign,
+        autoAddAssigneeUserIds: editAutoAddAssignees,
       },
     });
     setEditingId(null);
@@ -180,6 +183,20 @@ export default function SettingsStates({ project }: { project: ProjectDetail }) 
                                 </TooltipTrigger>
                                 <TooltipContent>{t('autoAssign.help')}</TooltipContent>
                               </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <AssigneeSelect
+                                      multiple
+                                      assignees={project.assignees}
+                                      value={editAutoAddAssignees}
+                                      onChange={setEditAutoAddAssignees}
+                                      placeholder={t('autoAssign.add')}
+                                    />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{t('autoAssign.addHelp')}</TooltipContent>
+                              </Tooltip>
                               <SettingsWipLimitField
                                 limit={editWip.limit}
                                 mode={editWip.mode}
@@ -195,6 +212,9 @@ export default function SettingsStates({ project }: { project: ProjectDetail }) 
                           deletable={s !== 'backlog' || group.length > 1}
                           autoAssignee={project.assignees.find(
                             (a) => a.userId === c.autoAssignUserId,
+                          )}
+                          addedAssignees={project.assignees.filter((a) =>
+                            c.autoAddAssigneeUserIds.includes(a.userId),
                           )}
                           onEdit={() => startEdit(c)}
                           onDelete={() => setDeleting(c)}

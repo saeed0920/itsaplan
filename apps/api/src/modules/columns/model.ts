@@ -20,6 +20,7 @@ export const ColumnResponse = t.Object({
   wipLimit: t.Union([t.Number(), t.Null()]),
   wipMode: t.String(),
   autoAssignUserId: t.Union([t.String(), t.Null()]),
+  autoAddAssigneeUserIds: t.Array(t.String()),
 });
 
 export const ColumnListResponse = t.Array(ColumnResponse);
@@ -55,7 +56,18 @@ export const createColumnBody = t.Object({
   ),
 });
 
-export const updateColumnBody = t.Partial(createColumnBody);
+export const updateColumnBody = t.Composite([
+  t.Partial(createColumnBody),
+  t.Object({
+    autoAddAssigneeUserIds: t.Optional(
+      t.Array(t.String({ minLength: 1 }), {
+        maxItems: 100,
+        uniqueItems: true,
+        description: 'Project members to add to issues moved into this column.',
+      }),
+    ),
+  }),
+]);
 
 export const reorderColumnsBody = t.Object({
   orderedIds: t.Array(t.Integer(), { minItems: 1 }),

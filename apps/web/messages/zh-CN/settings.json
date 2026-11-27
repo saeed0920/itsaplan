@@ -179,6 +179,8 @@
     "importApply": "{count, plural, other {应用 # 个状态}}",
     "imported": "已应用状态：新建 {created} 个，更新 {updated} 个。",
     "autoAssign": {
+      "add": "添加负责人",
+      "addHelp": "将任务移到此状态时添加这些人员，不移除其他负责人。",
       "none": "不自动指派",
       "help": "进入该状态的工作项将指派给该成员，并替换原负责人。",
       "rowTitle": "进入该状态的工作项将指派给 {name}"

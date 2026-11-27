@@ -17,12 +17,14 @@ import { useSettingsCan } from '../../context/settingsPermission';
 export function SettingsStateRow({
   column,
   autoAssignee,
+  addedAssignees,
   deletable,
   onEdit,
   onDelete,
 }: {
   column: Column;
   autoAssignee?: Assignee;
+  addedAssignees: Assignee[];
   deletable: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -78,6 +80,11 @@ export function SettingsStateRow({
           </TooltipTrigger>
           <TooltipContent>{t('autoAssign.rowTitle', { name: autoAssignee.name })}</TooltipContent>
         </Tooltip>
+      )}
+      {addedAssignees.length > 0 && (
+        <span className="truncate text-xs text-muted-foreground" title={t('autoAssign.addHelp')}>
+          {t('autoAssign.add')}: {addedAssignees.map((a) => a.name).join(', ')}
+        </span>
       )}
       {column.wipLimit != null && (
         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">

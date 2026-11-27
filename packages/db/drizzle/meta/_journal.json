@@ -1436,6 +1436,13 @@
       "when": 1795533997047,
       "tag": "0204_notification_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 205,
+      "version": "7",
+      "when": 1795776905547,
+      "tag": "0205_column_auto_add_assignees",
+      "breakpoints": true
     }
   ]
 }

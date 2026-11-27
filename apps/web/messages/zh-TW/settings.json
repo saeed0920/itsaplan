@@ -179,6 +179,8 @@
     "importApply": "{count, plural, other {套用 # 個狀態}}",
     "imported": "已套用狀態：新建 {created} 個，更新 {updated} 個。",
     "autoAssign": {
+      "add": "新增負責人",
+      "addHelp": "將任務移到此狀態時新增這些人員，不移除其他負責人。",
       "none": "不自動指派",
       "help": "進入該狀態的工作項目將指派給該成員，並替換原負責人。",
       "rowTitle": "進入該狀態的工作項目將指派給 {name}"

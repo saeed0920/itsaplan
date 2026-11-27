@@ -179,6 +179,8 @@
     "importApply": "{count, plural, one {Appliquer # état} other {Appliquer # états}}",
     "imported": "États appliqués : {created} créés, {updated} mis à jour.",
     "autoAssign": {
+      "add": "Ajouter des responsables",
+      "addHelp": "Ajoute ces personnes lorsqu’une tâche passe dans cet état sans retirer les autres responsables.",
       "none": "Aucune assignation automatique",
       "help": "Les tickets qui entrent dans cet état sont assignés à ce membre, en remplaçant le précédent responsable.",
       "rowTitle": "Les tickets qui entrent dans cet état vont à {name}"

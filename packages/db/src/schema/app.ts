@@ -542,6 +542,10 @@ export const projectColumn = pgTable(
     autoAssignUserId: text('auto_assign_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    autoAddAssigneeUserIds: text('auto_add_assignee_user_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

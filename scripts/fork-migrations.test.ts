@@ -22,7 +22,7 @@ it('preserves the 191 applied fork migrations and their journal entries', () => 
 });
 
 it('appends the 14 v1.13.0 migrations with shifted tags and exact SQL and timestamps', () => {
-  const upstream = entries.slice(forkCount);
+  const upstream = entries.slice(forkCount, forkCount + 14);
   assert.equal(upstream.length, 14);
   assert.equal(
     ledgerHash(upstream),

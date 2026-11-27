@@ -16,6 +16,7 @@ export interface Column {
   // The member every issue entering this column is assigned to, replacing whoever
   // held it.
   autoAssignUserId: string | null;
+  autoAddAssigneeUserIds: string[];
 }
 
 export type WipMode = 'soft' | 'hard';
@@ -48,6 +49,7 @@ export const updateColumn = (
     wipMode?: WipMode;
     // null clears the automatic assignment; absent leaves it as it is.
     autoAssignUserId?: string | null;
+    autoAddAssigneeUserIds?: string[];
   },
 ) =>
   request<Column>(`/projects/${projectKey}/columns/${columnId}`, {

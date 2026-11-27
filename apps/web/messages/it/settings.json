@@ -179,6 +179,8 @@
     "importApply": "{count, plural, one {Applica # stato} other {Applica # stati}}",
     "imported": "Stati applicati: {created} creati, {updated} aggiornati.",
     "autoAssign": {
+      "add": "Aggiungi assegnatari",
+      "addHelp": "Aggiunge queste persone quando un’attività passa a questo stato senza rimuovere gli altri assegnatari.",
       "none": "Nessun auto-assign",
       "help": "Le issue che entrano in questo stato vengono assegnate a questo membro, sostituendo chi le aveva.",
       "rowTitle": "Le issue che entrano in questo stato vanno a {name}"

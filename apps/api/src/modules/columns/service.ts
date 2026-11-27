@@ -9,6 +9,7 @@ import {
 } from '@repo/db';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { HttpError } from '#shared/lib';
+import { isProjectAgent } from '#modules/agents/core/service';
 import { assertAssignableMember, getAssignmentEligibility } from '#modules/members/service';
 import { recordActivityForIssues, statusSide } from '#modules/issues/activity';
 import { getIssues } from '#modules/issues/service';
@@ -29,6 +30,7 @@ export interface ColumnRow {
   wipLimit: number | null;
   wipMode: string;
   autoAssignUserId: string | null;
+  autoAddAssigneeUserIds: string[];
 }
 
 function mapColumn(row: typeof projectColumn.$inferSelect): ColumnRow {
@@ -42,6 +44,7 @@ function mapColumn(row: typeof projectColumn.$inferSelect): ColumnRow {
     wipLimit: row.wipLimit,
     wipMode: row.wipMode,
     autoAssignUserId: row.autoAssignUserId,
+    autoAddAssigneeUserIds: row.autoAddAssigneeUserIds,
   };
 }
 
@@ -57,6 +60,25 @@ export async function columnAutoAssignee(
   return (await getAssignmentEligibility(projectId, row.userId)) === 'assignable'
     ? row.userId
     : null;
+}
+
+export async function columnAutoAddAssignees(
+  projectId: number,
+  columnId: number,
+): Promise<string[]> {
+  const [row] = await db
+    .select({ ids: projectColumn.autoAddAssigneeUserIds })
+    .from(projectColumn)
+    .where(and(eq(projectColumn.id, columnId), eq(projectColumn.projectId, projectId)));
+  const ids: string[] = [];
+  for (const id of row?.ids ?? []) {
+    if (
+      (await getAssignmentEligibility(projectId, id)) === 'assignable' &&
+      !(await isProjectAgent(projectId, id))
+    )
+      ids.push(id);
+  }
+  return ids;
 }
 
 export const WIP_LIMIT_EXCEEDED = 'wip_limit_exceeded';
@@ -176,6 +198,7 @@ export async function updateColumn(
     wipMode?: string;
     // null clears the automatic assignment; absent leaves it as it is.
     autoAssignUserId?: string | null;
+    autoAddAssigneeUserIds?: string[];
   },
 ): Promise<ColumnRow | null> {
   const scope = and(eq(projectColumn.id, id), eq(projectColumn.projectId, projectId));
@@ -191,6 +214,19 @@ export async function updateColumn(
       'Auto-assignee',
     );
   }
+  if (patch.autoAddAssigneeUserIds?.length) {
+    const [current] = await db
+      .select({ ids: projectColumn.autoAddAssigneeUserIds })
+      .from(projectColumn)
+      .where(scope);
+    if (!current) return null;
+    for (const userId of patch.autoAddAssigneeUserIds) {
+      if (current.ids.includes(userId)) continue;
+      await assertAssignableMember(projectId, userId);
+      if (await isProjectAgent(projectId, userId))
+        throw new HttpError(400, 'Assignee must be a human project member');
+    }
+  }
   const set: Partial<typeof projectColumn.$inferInsert> = {};
   if (patch.name !== undefined) set.name = patch.name;
   if (patch.color !== undefined) set.color = patch.color;
@@ -198,6 +234,8 @@ export async function updateColumn(
   if (patch.wipLimit !== undefined) set.wipLimit = patch.wipLimit;
   if (patch.wipMode !== undefined) set.wipMode = patch.wipMode;
   if (patch.autoAssignUserId !== undefined) set.autoAssignUserId = patch.autoAssignUserId;
+  if (patch.autoAddAssigneeUserIds !== undefined)
+    set.autoAddAssigneeUserIds = patch.autoAddAssigneeUserIds;
   if (Object.keys(set).length === 0) {
     const rows = await db.select().from(projectColumn).where(scope);
     return rows[0] ? mapColumn(rows[0]) : null;

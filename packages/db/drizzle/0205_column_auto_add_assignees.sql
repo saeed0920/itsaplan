@@ -1,0 +1,1 @@
+ALTER TABLE "project_column" ADD COLUMN "auto_add_assignee_user_ids" text[] DEFAULT '{}'::text[] NOT NULL;

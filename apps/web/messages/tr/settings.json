@@ -179,6 +179,8 @@
     "importApply": "{count, plural, one {# durumu uygula} other {# durumu uygula}}",
     "imported": "Durumlar uygulandı: {created} oluşturuldu, {updated} güncellendi.",
     "autoAssign": {
+      "add": "Atananları ekle",
+      "addHelp": "Bir iş bu duruma taşındığında diğer atananları kaldırmadan bu kişileri ekler.",
       "none": "Otomatik atama yok",
       "help": "Bu duruma giren işler, önceden kime atanmış olduğuna bakılmaksızın bu üyeye atanır.",
       "rowTitle": "Bu duruma giren işler {name} kişisine atanır"

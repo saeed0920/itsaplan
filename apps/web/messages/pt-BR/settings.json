@@ -179,6 +179,8 @@
     "importApply": "{count, plural, one {Aplicar # estado} other {Aplicar # estados}}",
     "imported": "Estados aplicados: {created} criados, {updated} atualizados.",
     "autoAssign": {
+      "add": "Adicionar responsáveis",
+      "addHelp": "Adiciona essas pessoas ao mover uma tarefa para este estado sem remover os demais responsáveis.",
       "none": "Sem autoatribuição",
       "help": "Issues que entram neste estado são atribuídas a este membro, substituindo quem as tinha.",
       "rowTitle": "Issues que entram neste estado vão para {name}"

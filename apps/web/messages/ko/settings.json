@@ -179,6 +179,8 @@
     "importApply": "{count, plural, one {상태 #개 적용} other {상태 #개 적용}}",
     "imported": "상태 적용 완료: {created}개 생성, {updated}개 업데이트.",
     "autoAssign": {
+      "add": "담당자 추가",
+      "addHelp": "이 상태로 작업을 옮기면 다른 담당자를 제거하지 않고 이 사람들을 추가합니다.",
       "none": "자동 할당 없음",
       "help": "이 상태로 이동한 이슈의 담당자를 이 멤버로 변경합니다.",
       "rowTitle": "이 상태로 이동한 이슈를 {name}에게 할당"

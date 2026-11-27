@@ -179,6 +179,8 @@
     "importApply": "{count, plural, one {Terapkan # status} other {Terapkan # status}}",
     "imported": "Status berhasil diterapkan: {created} dibuat, {updated} diperbarui.",
     "autoAssign": {
+      "add": "Tambahkan penerima tugas",
+      "addHelp": "Menambahkan orang-orang ini saat tugas dipindahkan ke status ini tanpa menghapus penerima tugas lain.",
       "none": "Tanpa penugasan otomatis",
       "help": "Issue yang memasuki status ini akan ditugaskan kepada anggota ini, menggantikan anggota yang sebelumnya ditugaskan.",
       "rowTitle": "Issue yang memasuki status ini dialihkan ke {name}"

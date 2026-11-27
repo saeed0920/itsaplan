@@ -42,6 +42,42 @@ describe('column auto-assignee', () => {
     await resetDb();
   });
 
+  it('adds configured members on move without duplicates or replacing assignments', async () => {
+    const { asOwner, ownerId } = await setupProject();
+    const member = await addMember(asOwner, ownerId);
+    const source = (await columnByName(asOwner, 'Todo')).id;
+    const target = (await columnByName(asOwner, 'In Progress')).id;
+    const project = asOwner.projects({ projectKey: 'MKT' });
+    const config = project.columns({ columnId: target });
+    const set = await config.patch({ autoAddAssigneeUserIds: [ownerId, member] });
+    expect(set.status).toBe(200);
+    expect(set.data?.autoAddAssigneeUserIds).toEqual([ownerId, member]);
+
+    const created = await project.issues.post({
+      columnId: source,
+      title: 'Keep the primary assignee',
+      assigneeUserIds: [ownerId],
+    });
+    const task = asOwner.issues({ issueId: created.data!.id });
+    expect((await task.patch({ columnId: target })).data?.assigneeUserIds).toEqual([
+      ownerId,
+      member,
+    ]);
+    expect((await createIssue(asOwner, target)).data?.assigneeUserIds).toEqual([]);
+
+    expect((await config.patch({ autoAssignUserId: member })).status).toBe(200);
+    await task.patch({ columnId: source });
+    expect((await task.patch({ columnId: target })).data?.assigneeUserIds).toEqual([
+      member,
+      ownerId,
+    ]);
+
+    expect((await config.patch({ autoAddAssigneeUserIds: ['not-a-member'] })).status).toBe(400);
+    expect(
+      (await config.patch({ autoAddAssigneeUserIds: [] })).data?.autoAddAssigneeUserIds,
+    ).toEqual([]);
+  });
+
   describe('deactivated accounts', () => {
     it('refuses a deactivated account, on create and on update', async () => {
       const { asOwner, ownerId } = await setupProject();

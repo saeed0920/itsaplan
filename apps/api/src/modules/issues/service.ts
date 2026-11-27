@@ -95,7 +95,12 @@ import { deleteThreadsWhere } from '#modules/agents/core/runtime/memory';
 import { queueStatusRuns } from '#modules/agents/schedules/issue-runs';
 import { applySubtaskAutomation } from './automation';
 import { pushLinkedIssueState } from '#modules/git/issue-sync';
-import { assertWipLimit, columnAutoAssignee, wipLimitBreach } from '#modules/columns/service';
+import {
+  assertWipLimit,
+  columnAutoAddAssignees,
+  columnAutoAssignee,
+  wipLimitBreach,
+} from '#modules/columns/service';
 
 // Data access for issues and their per-issue data: labels, custom field values,
 // and selected options. The human identifier (e.g. "MKT-42") is the project key
@@ -1481,6 +1486,11 @@ export async function updateIssue(
       ? await columnAutoAssignee(before.projectId, movedToColumnId)
       : null;
 
+  const addAssignees =
+    !opts?.skipAutoAssignee && movedToColumnId !== null
+      ? await columnAutoAddAssignees(before.projectId, movedToColumnId)
+      : [];
+
   const set: Partial<typeof issue.$inferInsert> = {};
   if (patch.columnId !== undefined) set.columnId = patch.columnId;
   if (patch.position !== undefined) set.position = patch.position;
@@ -1515,8 +1525,20 @@ export async function updateIssue(
         await assertTreeLink(id, patch.parentId, tx);
       }
       const rows = await tx.update(issue).set(set).where(guard).returning({ id: issue.id });
-      if (rows.length && (patch.assigneeUserIds !== undefined || patch.assigneeUserId === null))
-        await replaceAdditionalAssignees(tx, id, before.projectId, patch.assigneeUserIds ?? []);
+      if (rows.length && (assigneeUserIds !== undefined || patch.assigneeUserId === null))
+        await replaceAdditionalAssignees(tx, id, before.projectId, assigneeUserIds ?? []);
+      if (rows.length && addAssignees.length > 0) {
+        const [current] = await tx
+          .select({ primary: issue.assigneeUserId, ids: assigneeIdsSql })
+          .from(issue)
+          .where(eq(issue.id, id));
+        const ids = [...new Set([...current.ids, ...addAssignees])].slice(0, 100);
+        if (ids.length > current.ids.length) {
+          if (!current.primary)
+            await tx.update(issue).set({ assigneeUserId: ids[0] }).where(eq(issue.id, id));
+          await replaceAdditionalAssignees(tx, id, before.projectId, ids);
+        }
+      }
       return rows;
     });
     if (updated.length === 0) {
