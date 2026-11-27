@@ -19,7 +19,6 @@
   --kanban-column: var(--accent);
   --kanban-column-raised: var(--background);
   --kanban-card: var(--card);
-  --kanban-card-hover: color-mix(in oklab, var(--primary) 7%, var(--card));
   --kanban-card-selected: color-mix(in oklab, var(--primary) 18%, var(--card));
 }
 
@@ -29,7 +28,8 @@
   --card: #ffffff;
   --primary: #155dfc;
   --primary-foreground: #ffffff;
-  --accent: #e9f1ff;
+  --accent: #dce8ff;
+  --kanban-card-hover: #eff3fc;
   --muted-foreground: #495e7b;
   --border: #d2def2;
   --sidebar: #f3f7ff;
@@ -42,6 +42,7 @@
   --primary: #93bdff;
   --primary-foreground: #101a2e;
   --accent: #23385a;
+  --kanban-card-hover: #243352;
   --muted-foreground: #b1c2de;
   --border: #374c6e;
   --sidebar: #121e34;
@@ -53,11 +54,12 @@
   --card: #ffffff;
   --primary: #255085;
   --primary-foreground: #ffffff;
-  --accent: #edebe6;
+  --accent: #e4e1da;
+  --kanban-card-hover: #eef2f7;
   --muted-foreground: #55534f;
   --border: #d5d1c9;
   --sidebar: #f0eee9;
-  --sidebar-accent: #e3edfa;
+  --sidebar-accent: #d4e4fa;
   --kanban-card-selected: #dceafb;
 }
 
@@ -69,6 +71,7 @@
   --primary: #93c5fd;
   --primary-foreground: #1e1e1e;
   --accent: #363d47;
+  --kanban-card-hover: #353a41;
   --muted-foreground: #c6ccd4;
   --border: #474b51;
   --sidebar: #242424;

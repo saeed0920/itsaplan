@@ -23,6 +23,7 @@ const StartPage = t.Union([
   t.Literal('work-items'),
   t.Literal('initiatives'),
 ]);
+const AgentRunsView = t.Union([t.Literal('full'), t.Literal('compact')]);
 const IssueStatsView = t.Union([t.Literal('compact'), t.Literal('timeline')]);
 const IssueActivityView = t.Union([t.Literal('flat'), t.Literal('grouped')]);
 
@@ -36,11 +37,13 @@ export const PreferenceResponse = t.Object({
   issueOpenMode: IssueOpenMode,
   startPage: StartPage,
   showChatByDefault: t.Boolean(),
+  agentRunsView: AgentRunsView,
   issueStatsOpen: t.Boolean(),
   issueStatsView: IssueStatsView,
   issueActivityView: IssueActivityView,
   autoWatch: t.Boolean(),
   onboardingSeen: t.Boolean(),
+  showcaseSeen: t.Boolean(),
   lastProjectId: t.Nullable(t.Number()),
   hotkeys: HotkeyCombosSchema,
 });
@@ -55,11 +58,13 @@ export const PreferencePatch = t.Object({
   issueOpenMode: t.Optional(IssueOpenMode),
   startPage: t.Optional(StartPage),
   showChatByDefault: t.Optional(t.Boolean()),
+  agentRunsView: t.Optional(AgentRunsView),
   issueStatsOpen: t.Optional(t.Boolean()),
   issueStatsView: t.Optional(IssueStatsView),
   issueActivityView: t.Optional(IssueActivityView),
   autoWatch: t.Optional(t.Boolean()),
   onboardingSeen: t.Optional(t.Boolean()),
+  showcaseSeen: t.Optional(t.Boolean()),
   lastProjectId: t.Optional(t.Nullable(t.Number())),
   hotkeys: t.Optional(HotkeyCombosSchema),
 });

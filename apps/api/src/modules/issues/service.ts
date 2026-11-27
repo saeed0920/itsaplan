@@ -59,9 +59,11 @@ import {
 import {
   recordActivity,
   recordActivityEntries,
+  textSide,
   logIssueUpdate,
   labelNames,
   actorId,
+  isOutsideAuthor,
   type ActivityActor,
   userName,
   rowSide,
@@ -82,11 +84,17 @@ import {
 } from '#modules/agents/core/service';
 import { getInitiativeProjectId } from '#modules/initiatives/service';
 import { cycleStatus, getCycleRef, type CycleStatus } from '#modules/cycles/service';
-import { getMembership } from '#modules/members/service';
+import {
+  assertAssignmentEligibility,
+  getAssignmentEligibility,
+  getMembership,
+} from '#modules/members/service';
 import { enqueueAgentRun } from '#modules/agents/core/run-queue';
+import { runOrigin } from '#modules/agents/core/run-initiator';
 import { deleteThreadsWhere } from '#modules/agents/core/runtime/memory';
 import { queueStatusRuns } from '#modules/agents/schedules/issue-runs';
 import { applySubtaskAutomation } from './automation';
+import { pushLinkedIssueState } from '#modules/git/issue-sync';
 import { assertWipLimit, columnAutoAssignee, wipLimitBreach } from '#modules/columns/service';
 
 // Data access for issues and their per-issue data: labels, custom field values,
@@ -246,7 +254,9 @@ export async function listIssues(project: ProjectRow): Promise<IssueRow[]> {
     .select({ ...getTableColumns(issue), assigneeUserIds: assigneeIdsSql })
     .from(issue)
     .where(and(eq(issue.projectId, project.id), isNull(issue.archivedAt)))
-    .orderBy(issue.columnId, issue.position);
+    // Cards share a position after a move between columns; id keeps them in one order,
+    // the same one list_issues gives for sort=position.
+    .orderBy(issue.columnId, issue.position, issue.id);
   const issues = rows.map((row) => mapIssue(row, project.key));
   await attachDetails(issues, { fieldValues: true, ids: projectIssueIds(project.id, false) });
   return issues;
@@ -277,6 +287,7 @@ export interface IssueSearchHit {
   identifier: string;
   title: string;
   columnId: number;
+  position: number;
   typeId: number | null;
   initiativeId: number | null;
   cycleId: number | null;
@@ -367,6 +378,31 @@ function hitOrder(numberMatch: SQL | undefined): SQL[] {
   return numberMatch ? [sql`case when ${numberMatch} then 0 else 1 end`, recent] : [recent];
 }
 
+interface IssueOrder {
+  sort?: 'position' | 'updated' | 'created' | 'dueDate' | 'priority';
+  dir?: 'asc' | 'desc';
+}
+
+// An unset or unknown priority ranks null, so it comes last in both directions.
+const priorityRank = sql`case ${issue.priority}
+  when 'urgent' then 0 when 'high' then 1 when 'medium' then 2 when 'low' then 3 end`;
+
+const sortValues = {
+  position: issue.position,
+  updated: issue.updatedAt,
+  created: issue.createdAt,
+  dueDate: issue.dueDate,
+  priority: priorityRank,
+};
+
+// id breaks ties in the same direction, so position asc matches the board and desc is its
+// exact reverse.
+function listOrder({ sort, dir }: IssueOrder, fallback: SQL[]): SQL[] {
+  if (!sort) return fallback;
+  const direction = dir === 'desc' ? sql`desc` : sql`asc`;
+  return [sql`${sortValues[sort]} ${direction} nulls last`, sql`${issue.id} ${direction}`];
+}
+
 const hitColumns = {
   columnName: sql<
     string | null
@@ -382,6 +418,7 @@ const hitColumns = {
   assigneeUserIds: assigneeIdsSql,
   delegateUserId: issue.delegateUserId,
   columnId: issue.columnId,
+  position: issue.position,
   title: issue.title,
   priority: issue.priority,
   dueDate: issue.dueDate,
@@ -496,12 +533,13 @@ function fieldConds(filters: FieldFilters): SQL[] {
 // issues to the result (search always sets it; list defaults to active only).
 export async function searchIssues(
   project: ProjectRow,
-  filters: IssueQuery & {
-    createdFrom?: Date;
-    createdTo?: Date;
-    updatedFrom?: Date;
-    updatedTo?: Date;
-  },
+  filters: IssueQuery &
+    IssueOrder & {
+      createdFrom?: Date;
+      createdTo?: Date;
+      updatedFrom?: Date;
+      updatedTo?: Date;
+    },
   opts: { includeArchived?: boolean } = {},
 ): Promise<IssueSearchHit[]> {
   const conds: SQL[] = [eq(issue.projectId, project.id)];
@@ -574,7 +612,7 @@ export async function searchIssues(
     .select(hitColumns)
     .from(issue)
     .where(and(...conds))
-    .orderBy(...hitOrder(numberMatch));
+    .orderBy(...listOrder(filters, hitOrder(numberMatch)));
   const rows = filters.limit !== undefined ? await base.limit(filters.limit) : await base;
 
   const hits = rows.map((r) => toHit(r, project.key));
@@ -666,16 +704,18 @@ export const ISSUE_STATE_TYPES = [
 ] as const;
 export type IssueStateType = (typeof ISSUE_STATE_TYPES)[number];
 
-// The filtered list over the given projects, most recently updated first. The ids it
-// takes (cycles, parents) are global, so they need no project to resolve against.
+// The filtered list over the given projects, most recently updated first unless a sort
+// is chosen. The ids it takes (cycles, parents) are global, so they need no project to
+// resolve against.
 export async function listIssuesInProjects(
   projectIds: number[],
-  filters: FieldFilters & {
-    cycleIds?: number[];
-    parentIds?: number[];
-    stateTypes?: IssueStateType[];
-    limit: number;
-  },
+  filters: FieldFilters &
+    IssueOrder & {
+      cycleIds?: number[];
+      parentIds?: number[];
+      stateTypes?: IssueStateType[];
+      limit: number;
+    },
   opts: { includeArchived?: boolean } = {},
 ): Promise<CrossProjectIssueHit[]> {
   if (!projectIds.length) return [];
@@ -699,7 +739,7 @@ export async function listIssuesInProjects(
     .innerJoin(projectTable, eq(projectTable.id, issue.projectId))
     .innerJoin(team, eq(team.id, projectTable.teamId))
     .where(and(...conds))
-    .orderBy(...hitOrder(undefined))
+    .orderBy(...listOrder(filters, hitOrder(undefined)))
     .limit(filters.limit);
   const hits = rows.map(toCrossProjectHit);
   await attachLabels(hits);
@@ -1037,31 +1077,40 @@ export interface NewIssueInput {
   labelIds?: number[];
 }
 
-// Enforces that assignee holds a project member and delegate holds an agent of the
-// same project. Only checks the fields present in the patch, and only when set to a
-// non-null value (clearing a field is always allowed). Throws 400 otherwise.
-async function assertAssignments(
+// Explicit edits can keep an existing assignee. Imports omit unavailable assignments.
+async function resolveIssueAssignee(
   projectId: number,
-  patch: {
-    assigneeUserIds?: string[];
-    assigneeUserId?: string | null;
-    delegateUserId?: string | null;
-  },
-): Promise<void> {
-  if (patch.assigneeUserIds !== undefined && patch.assigneeUserId !== undefined)
+  assigneeUserId: string | null | undefined,
+  currentAssigneeUserIds: string[] = [],
+  skipUnavailable = false,
+): Promise<string | null | undefined> {
+  if (!assigneeUserId) return assigneeUserId;
+  if (await isProjectAgent(projectId, assigneeUserId)) {
+    if (skipUnavailable) return undefined;
+    throw new HttpError(400, 'Assignee must be a human project member');
+  }
+  const eligibility = await getAssignmentEligibility(projectId, assigneeUserId);
+  if (skipUnavailable && eligibility !== 'assignable') return undefined;
+  assertAssignmentEligibility(eligibility, currentAssigneeUserIds.includes(assigneeUserId));
+  return assigneeUserId;
+}
+
+function assigneeIdsFromPatch(patch: {
+  assigneeUserIds?: string[];
+  assigneeUserId?: string | null;
+}): string[] | undefined {
+  const ids = patch.assigneeUserIds;
+  if (ids === undefined) return;
+  if (patch.assigneeUserId !== undefined)
     throw new HttpError(400, 'Send assigneeUserIds or assigneeUserId, not both');
-  const ids = patch.assigneeUserIds ?? (patch.assigneeUserId ? [patch.assigneeUserId] : []);
   if (ids.length > 100 || new Set(ids).size !== ids.length || ids.some((id) => !id))
     throw new HttpError(400, 'Assignees must be unique member ids (at most 100)');
-  for (const id of ids) {
-    const role = await getMembership(projectId, id);
-    if (!role || (await isProjectAgent(projectId, id)))
-      throw new HttpError(400, 'Assignee must be a human project member');
-  }
-  if (patch.delegateUserId) {
-    if (!(await isProjectAgent(projectId, patch.delegateUserId)))
-      throw new HttpError(400, 'Delegate must be an agent of this project');
-  }
+  return ids;
+}
+
+async function assertDelegate(projectId: number, userId?: string | null): Promise<void> {
+  if (userId && !(await isProjectAgent(projectId, userId)))
+    throw new HttpError(400, 'Delegate must be an agent of this project');
 }
 
 // Enforces that a linked initiative belongs to the same project. Only checks when
@@ -1109,7 +1158,7 @@ async function assertColumn(projectId: number, columnId: number | undefined): Pr
 
 // Enforces that an issue type belongs to the issue's project. Only checks when set
 // to a non-null value (clearing the type is always allowed). Throws 400 otherwise.
-async function assertIssueType(
+export async function assertIssueType(
   projectId: number,
   typeId: number | null | undefined,
 ): Promise<void> {
@@ -1158,7 +1207,7 @@ export async function assertTreeLink(
 
 // Enforces that every label belongs to the issue's project — the issue_label
 // foreign key only requires the label to exist somewhere. Throws 400 otherwise.
-async function assertIssueLabels(projectId: number, labelIds?: number[]): Promise<void> {
+export async function assertIssueLabels(projectId: number, labelIds?: number[]): Promise<void> {
   const ids = [...new Set(labelIds ?? [])];
   if (ids.length === 0) return;
   const rows = await db
@@ -1181,24 +1230,35 @@ function assertDateOrder(startDate?: string | null, dueDate?: string | null) {
 export async function createIssue(
   project: ProjectRow,
   input: NewIssueInput,
-  actorUserId?: string | null,
+  actor?: ActivityActor,
+  opts?: { skipUnavailableAssignee?: boolean; skipWipLimit?: boolean; skipStatusRuns?: boolean },
 ): Promise<IssueRow> {
-  await assertAssignments(project.id, input);
+  const actorUserId = actorId(actor);
+  const assigneeUserIds = assigneeIdsFromPatch(input);
+  for (const id of assigneeUserIds ?? []) await resolveIssueAssignee(project.id, id);
+  const requestedAssignee = await resolveIssueAssignee(
+    project.id,
+    input.assigneeUserId,
+    undefined,
+    opts?.skipUnavailableAssignee,
+  );
+  await assertDelegate(project.id, input.delegateUserId);
   await assertInitiative(project.id, input.initiativeId);
   await assertCycle(project.id, input.cycleId);
   await assertColumn(project.id, input.columnId);
-  await assertWipLimit(input.columnId);
+  if (!opts?.skipWipLimit) await assertWipLimit(input.columnId);
   await assertIssueType(project.id, input.typeId);
   await assertParent(project.id, null, input.parentId);
   assertDateOrder(input.startDate, input.dueDate);
   // Also checked by setIssueLabels below, but here it fails before the issue exists.
   await assertIssueLabels(project.id, input.labelIds);
-  // An issue created in a column enters it the same way a moved one does, so the
-  // column's auto-assignee applies. An assignee sent with the create wins over it.
+  // A named but unresolved import assignee stays unassigned. Blank cells use the column default.
+  const hasImportAssignee = opts?.skipUnavailableAssignee && input.assigneeUserId !== undefined;
   const assigneeUserId =
-    input.assigneeUserIds !== undefined
-      ? (input.assigneeUserIds[0] ?? null)
-      : (input.assigneeUserId ?? (await columnAutoAssignee(input.columnId)));
+    assigneeUserIds !== undefined
+      ? (assigneeUserIds[0] ?? null)
+      : (requestedAssignee ??
+        (hasImportAssignee ? null : await columnAutoAssignee(project.id, input.columnId)));
   const { id: issueId, createdAt } = await db.transaction(async (tx) => {
     if (input.parentId != null) {
       await lockIssueTree(tx, project.id);
@@ -1238,28 +1298,43 @@ export async function createIssue(
       .returning({ id: issue.id, createdAt: issue.createdAt });
     if (input.assigneeUserIds !== undefined)
       await replaceAdditionalAssignees(tx, row.id, project.id, input.assigneeUserIds);
+    // The entry holds the text as filed, so the change log shows who wrote a field
+    // that was never edited.
+    await recordActivityEntries(
+      [
+        {
+          issueId: row.id,
+          event: {
+            action: 'created',
+            title: textSide(input.title),
+            description: textSide(input.description ?? ''),
+          },
+        },
+      ],
+      actor,
+      tx,
+    );
     return row;
   });
 
   // The first stretch of the status history starts when the issue does, so the
   // entries of its creation fall inside it.
   await recordStatusChange([issueId], input.columnId, createdAt);
-  await recordActivity(issueId, [{ action: 'created' }], actorUserId);
   if (input.cycleId != null) await recordCycleChange(issueId, null, input.cycleId);
-  if (input.parentId != null) await recordParentChange(issueId, null, input.parentId, actorUserId);
+  if (input.parentId != null) await recordParentChange(issueId, null, input.parentId, actor);
   // Suppress the label_changed event on creation — the initial labels are part of
   // the issue.created payload, so a separate change event would be redundant.
   if (input.labelIds?.length)
-    await setIssueLabels(project.id, issueId, input.labelIds, actorUserId, false);
+    await setIssueLabels(project.id, issueId, input.labelIds, actor, false);
   const created = (await getIssue(issueId))!;
   // The author follows what they filed; the assignee is subscribed by the
   // assignment notification below, the same as a later assignment does.
   await autoWatchIssue(project.id, issueId, [actorUserId]);
-  await emitIssueEvent('issue.created', created, actorUserId);
+  await emitIssueEvent('issue.created', created, actor);
   // An issue created already delegated to an agent enqueues a run, the same as
   // delegating one later does.
-  await enqueueDelegateRun(created, actorUserId);
-  await queueStatusRuns([issueId], input.columnId, actorUserId);
+  await enqueueDelegateRun(created, actor);
+  if (!opts?.skipStatusRuns) await queueStatusRuns([issueId], input.columnId, actorUserId);
   // An issue created already assigned to a member notifies them, the same as
   // assigning one later does.
   for (const userId of created.assigneeUserIds) {
@@ -1272,14 +1347,15 @@ export async function createIssue(
   }
   // A description written on creation reaches the people it mentions, the same as
   // one written into an existing issue does.
-  await notifyTextMentions({
-    projectId: project.id,
-    issueId,
-    actorUserId: actorUserId ?? null,
-    sourceActivityId: null,
-    before: '',
-    after: created.description,
-  });
+  if (!isOutsideAuthor(actor))
+    await notifyTextMentions({
+      projectId: project.id,
+      issueId,
+      actorUserId: actorUserId ?? null,
+      sourceActivityId: null,
+      before: '',
+      after: created.description,
+    });
   return created;
 }
 
@@ -1361,7 +1437,7 @@ export async function updateIssue(
   id: number,
   patch: IssuePatch,
   actor?: ActivityActor,
-  opts?: { onlyIfColumnId?: number; skipIfColumnFull?: boolean },
+  opts?: { onlyIfColumnId?: number; skipIfColumnFull?: boolean; skipAutoAssignee?: boolean },
 ): Promise<IssueRow | null> {
   const before = await loadSnapshot(id);
   if (!before) return null;
@@ -1372,7 +1448,15 @@ export async function updateIssue(
     patch.startDate !== undefined ? patch.startDate : before.startDate,
     patch.dueDate !== undefined ? patch.dueDate : before.dueDate,
   );
-  await assertAssignments(before.projectId, patch);
+  const assigneeUserIds = assigneeIdsFromPatch(patch);
+  for (const assigneeId of assigneeUserIds ?? [])
+    await resolveIssueAssignee(before.projectId, assigneeId, before.assigneeUserIds);
+  const requestedAssignee = await resolveIssueAssignee(
+    before.projectId,
+    patch.assigneeUserId,
+    before.assigneeUserIds,
+  );
+  await assertDelegate(before.projectId, patch.delegateUserId);
   await assertInitiative(before.projectId, patch.initiativeId);
   await assertCycle(before.projectId, patch.cycleId, before.cycleId);
   await assertColumn(before.projectId, patch.columnId);
@@ -1388,12 +1472,13 @@ export async function updateIssue(
   await assertIssueType(before.projectId, patch.typeId);
   await assertParent(before.projectId, id, patch.parentId);
 
-  // An assignee sent with the same move wins over the column's auto-assignee.
+  // Saved actions resolve automatic assignment before checking the confirmed effect.
   const autoAssignee =
+    !opts?.skipAutoAssignee &&
     movedToColumnId !== null &&
     patch.assigneeUserId === undefined &&
-    patch.assigneeUserIds === undefined
-      ? await columnAutoAssignee(movedToColumnId)
+    assigneeUserIds === undefined
+      ? await columnAutoAssignee(before.projectId, movedToColumnId)
       : null;
 
   const set: Partial<typeof issue.$inferInsert> = {};
@@ -1403,8 +1488,8 @@ export async function updateIssue(
   if (patch.parentId !== undefined) set.parentId = patch.parentId;
   if (patch.initiativeId !== undefined) set.initiativeId = patch.initiativeId;
   if (patch.cycleId !== undefined) set.cycleId = patch.cycleId;
-  if (patch.assigneeUserIds !== undefined) set.assigneeUserId = patch.assigneeUserIds[0] ?? null;
-  else if (patch.assigneeUserId !== undefined) set.assigneeUserId = patch.assigneeUserId;
+  if (assigneeUserIds !== undefined) set.assigneeUserId = assigneeUserIds[0] ?? null;
+  else if (requestedAssignee !== undefined) set.assigneeUserId = requestedAssignee;
   else if (autoAssignee) set.assigneeUserId = autoAssignee;
   if (patch.delegateUserId !== undefined) set.delegateUserId = patch.delegateUserId;
   if (patch.title !== undefined) set.title = patch.title;
@@ -1459,6 +1544,7 @@ export async function updateIssue(
         await emitIssueEvent('issue.state_changed', after, actor);
         await queueStatusRuns([id], after.columnId, actorId(actor));
         await applySubtaskAutomation(after, actor);
+        await pushLinkedIssueState(id, after.columnId);
       }
     }
   }
@@ -1479,6 +1565,7 @@ async function enqueueDelegateRun(after: IssueRow, actor?: ActivityActor): Promi
     projectId: after.projectId,
     issueId: after.id,
     sourceActivityId: null,
+    ...(await runOrigin(actorId(actor))),
     prompt: `Work item ${after.identifier}: "${after.title}" has been delegated to you. Review it and take the appropriate next step.`,
     delaySeconds: agent.delegationDelaySec,
   });
@@ -1518,7 +1605,7 @@ export async function setIssueLabels(
   projectId: number,
   issueId: number,
   labelIds: number[],
-  actorUserId?: string | null,
+  actor?: ActivityActor,
   emitEvent = true,
 ): Promise<void> {
   await assertIssueLabels(projectId, labelIds);
@@ -1555,13 +1642,13 @@ export async function setIssueLabels(
     events.push({ action: 'label_add', to: rowSide(names.get(labelId), labelId) });
   for (const labelId of removed)
     events.push({ action: 'label_remove', from: rowSide(names.get(labelId), labelId) });
-  await recordActivity(issueId, events, actorUserId);
+  await recordActivity(issueId, events, actor);
 
   if (emitEvent && (added.length > 0 || removed.length > 0)) {
     const issueRow = await getIssue(issueId);
     if (issueRow) {
       const named = (ids: number[]) => ids.map((id) => ({ id, name: names.get(id) ?? null }));
-      await emitIssueEvent('issue.label_changed', issueRow, actorUserId, {
+      await emitIssueEvent('issue.label_changed', issueRow, actor, {
         labelChange: { added: named(added), removed: named(removed) },
       });
     }
@@ -1631,6 +1718,26 @@ export async function bulkUpdateIssues(
     await assertColumn(projectId, patch.columnId);
     const incoming = await countEnteringColumn(valid, patch.columnId);
     if (incoming > 0) await assertWipLimit(patch.columnId, incoming);
+  }
+  // Same reason as the WIP check: an inactive assignee that only some of the issues
+  // already hold would refuse the rest after the first ones were written.
+  const assigneeUserIds =
+    assigneeIdsFromPatch(patch) ?? (patch.assigneeUserId ? [patch.assigneeUserId] : []);
+  if (valid.length > 0) {
+    for (const userId of assigneeUserIds) {
+      if (await isProjectAgent(projectId, userId))
+        throw new HttpError(400, 'Assignee must be a human project member');
+      const eligibility = await getAssignmentEligibility(projectId, userId);
+      const [changing] =
+        eligibility === 'inactive'
+          ? await db
+              .select({ id: issue.id })
+              .from(issue)
+              .where(and(inArray(issue.id, valid), sql`NOT (${userId} = ANY(${assigneeIdsSql}))`))
+              .limit(1)
+          : [];
+      assertAssignmentEligibility(eligibility, !changing);
+    }
   }
   for (const id of valid) await updateIssue(id, patch, actorUserId);
   return valid.length;
@@ -1868,6 +1975,7 @@ async function enqueueFieldRun(
     projectId,
     issueId,
     sourceActivityId: null,
+    ...(await runOrigin(actorUserId)),
     trigger: 'field',
     prompt: `Work item ${row.identifier}: "${row.title}" now has you as its "${field.name}". Review it and take the appropriate next step.`,
     delaySeconds: agent.delaySec,

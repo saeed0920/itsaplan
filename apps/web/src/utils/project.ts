@@ -64,16 +64,31 @@ export type NewIssueDefaults = Partial<
   fieldValues?: { fieldId: number; userId: string }[];
 };
 
+// The project members a picker offers as an issue assignee: real people whose
+// accounts are active. Deactivated accounts stay in project.assignees so existing
+// assignments, filters, member fields and mentions keep resolving.
+export function assignableMembers(assignees: Assignee[]): Assignee[] {
+  return assignees.filter((a) => a.kind === 'member' && a.canAssign);
+}
+
 // A new issue from its defaults. What they leave out gets the first column, the
 // default type, and the creating user as the assignee when they are a member. A
 // default cycle that is not among the planned ones has finished, and nothing new
-// is planned into it.
+// is planned into it; a default assignee whose account is deactivated is dropped
+// the same way.
 export function newIssueInput(
   project: ProjectDetail,
   defaults: NewIssueDefaults,
   userId: string | null,
 ): NewIssueInput {
-  const userIsMember = project.assignees.some((a) => a.kind === 'member' && a.userId === userId);
+  // null is an explicit "No assignee", from the board group of that name.
+  const candidateAssignee =
+    defaults.assigneeUserId === undefined ? userId : defaults.assigneeUserId;
+  const members = assignableMembers(project.assignees);
+  const assigneeUserId =
+    candidateAssignee != null && members.some((a) => a.userId === candidateAssignee)
+      ? candidateAssignee
+      : null;
   return {
     title: defaults.title ?? '',
     description: defaults.description,
@@ -84,14 +99,8 @@ export function newIssueInput(
         : defaults.typeId,
     initiativeId: defaults.initiativeId ?? null,
     cycleId: project.plannedCycles.find((c) => c.id === defaults.cycleId)?.id ?? null,
-    // null is an explicit "No assignee", from the board group of that name.
-    assigneeUserId:
-      defaults.assigneeUserId !== undefined
-        ? defaults.assigneeUserId
-        : userIsMember
-          ? userId
-          : null,
-    assigneeUserIds: defaults.assigneeUserIds,
+    assigneeUserId,
+    assigneeUserIds: defaults.assigneeUserIds?.filter((id) => members.some((a) => a.userId === id)),
     delegateUserId: defaults.delegateUserId ?? null,
     priority: defaults.priority ?? null,
     parentId: defaults.parentId ?? null,
@@ -378,14 +387,22 @@ function allGroups(project: ProjectDetail, group: GroupField, labels: GroupLabel
         assign: patchOnly({ columnId: c.id }),
         values: [c.id],
       }));
-    case 'assignee':
+    case 'assignee': {
+      // Active members get a lane an issue can be dropped into or created in. A
+      // deactivated member gets a lane only while an issue on the board still holds
+      // them — taking no drop, the way a finished cycle does — so their remaining work
+      // stays visible without offering them as a target.
+      const held = new Set<string>();
+      for (const issue of project.issues) {
+        if (issue.assigneeUserId) held.add(issue.assigneeUserId);
+      }
       return [
         ...project.assignees
-          .filter((a) => a.kind === 'member')
+          .filter((a) => a.kind === 'member' && (a.canAssign || held.has(a.userId)))
           .map((a) => ({
             key: `a${a.userId}`,
             name: a.name,
-            assign: patchOnly({ assigneeUserId: a.userId }),
+            assign: a.canAssign ? patchOnly({ assigneeUserId: a.userId }) : null,
             values: [a.userId],
           })),
         {
@@ -395,6 +412,7 @@ function allGroups(project: ProjectDetail, group: GroupField, labels: GroupLabel
           values: [null],
         },
       ];
+    }
     case 'delegate':
       return [
         ...project.assignees

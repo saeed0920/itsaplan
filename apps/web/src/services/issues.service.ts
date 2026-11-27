@@ -31,6 +31,7 @@ import {
   searchAllIssues,
   listSubtree,
   updateIssue,
+  applyIssueAction,
   deleteIssue,
   moveIssue,
   archiveIssue,
@@ -224,7 +225,8 @@ export function useUpdateIssue(projectKey: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationKey: ['updateIssue'],
-    mutationFn: ({ id, patch }: { id: number; patch: IssuePatch }) => updateIssue(id, patch),
+    mutationFn: ({ id, patch, actionId }: { id: number; patch: IssuePatch; actionId?: number }) =>
+      actionId === undefined ? updateIssue(id, patch) : applyIssueAction(id, actionId, patch),
     onMutate: async ({ id, patch }) => {
       if (!projectKey) return {};
       const key = qk.boardIssues(projectKey);

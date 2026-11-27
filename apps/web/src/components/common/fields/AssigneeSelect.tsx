@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { CircleDashed } from 'lucide-react';
 import { useIsMutating } from '@tanstack/react-query';
 import type { Assignee } from '@/lib/api/endpoints/projects';
+import { assignableMembers } from '@/utils/project';
 import { useSession } from '@/lib/auth-client';
 import { toggleAssignee } from '@/utils/assignees';
 import Avatar from '@/components/common/Avatar';
@@ -41,8 +42,9 @@ export default function AssigneeSelect(props: Props) {
         (mutation.state.variables as { id?: number } | undefined)?.id === issueId,
     }) > 0;
   const ids = props.multiple ? props.value : [props.value ?? ''].filter(Boolean);
-  const members = assignees.filter((a) => a.kind === 'member');
-  const selected = members.filter((a) => ids.includes(a.userId));
+  const selected = assignees.filter((a) => a.kind === 'member' && ids.includes(a.userId));
+  const members = assignableMembers(assignees);
+  const choices = props.multiple ? [...members, ...selected.filter((a) => !a.canAssign)] : members;
   const select = (id: string | null) => {
     if (pending) return;
     if (props.multiple) props.onChange(id === null ? [] : toggleAssignee(ids, id));
@@ -95,7 +97,7 @@ export default function AssigneeSelect(props: Props) {
       ]}
       groups={[
         ...(me ? [{ heading: t('you'), items: [toItem(me)] }] : []),
-        { heading: t('members'), items: members.filter((a) => a !== me).map(toItem) },
+        { heading: t('members'), items: choices.filter((a) => a !== me).map(toItem) },
       ]}
     />
   );

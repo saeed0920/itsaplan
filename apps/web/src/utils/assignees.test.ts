@@ -4,7 +4,7 @@ import { issueAssigneeIds, toggleAssignee } from './assignees';
 import { applyFilters, type FilterSet } from './filters';
 import { buildGroups, groupIssues, type GroupLabels } from './project';
 import type { ProjectDetail } from '@/lib/api/endpoints/projects';
-import type { Issue } from '@/lib/api/endpoints/issues';
+import type { BoardIssue, Issue } from '@/lib/api/endpoints/issues';
 
 test('legacy single assignment and authoritative empty arrays', () => {
   assert.deepEqual(issueAssigneeIds({ assigneeUserId: 'one' }), ['one']);
@@ -13,8 +13,14 @@ test('legacy single assignment and authoritative empty arrays', () => {
 });
 
 test('a secondary-assignee filter does not hide the primary-assignee group', () => {
-  const fixture: Pick<ProjectDetail, 'columns' | 'assignees'> = {
+  const issue: BoardIssue = {
+    ...({ id: 1, assigneeUserId: 'one', assigneeUserIds: ['one', 'two'] } as Issue),
+    links: [],
+    subtaskCount: 0,
+  };
+  const fixture: Pick<ProjectDetail, 'columns' | 'assignees' | 'issues'> = {
     columns: [],
+    issues: [issue],
     assignees: ['one', 'two'].map((userId) => ({
       userId,
       name: userId,
@@ -26,10 +32,10 @@ test('a secondary-assignee filter does not hide the primary-assignee group', () 
       restrictedToUserId: null,
       respondsToMention: null,
       canReadWorkItems: true,
+      canAssign: true,
     })),
   };
   const project = fixture as ProjectDetail;
-  const issue = { id: 1, assigneeUserId: 'one', assigneeUserIds: ['one', 'two'] } as Issue;
   const filters: FilterSet = {
     conditions: [{ id: 'test', field: 'assignee', op: 'is', values: ['two'] }],
   };

@@ -7,9 +7,9 @@ import type { CustomTheme } from '@/utils/customTheme';
 // The signed-in user's interface preferences, held per account so they apply on
 // every device. timezone is an IANA zone name the app renders stored UTC timestamps
 // in; issueOpenMode decides whether a clicked issue opens in the side panel or on
-// its own page; startPage is the section the app root lands on; showChatByDefault
-// keeps the floating AI chat button on screen from the start; lastProjectId is the
-// project the app root reopens (null until the user has opened one).
+// its own page; startPage is the section the app root lands on; showChatByDefault opens
+// the side panel on the AI chat in a project the user has not opened or closed it in yet;
+// lastProjectId is the project the app root reopens (null until the user has opened one).
 export type CalendarSystem = 'gregory' | 'persian';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
@@ -17,6 +17,8 @@ export type ThemePreference = 'light' | 'dark' | 'system';
 export type IssueOpenMode = 'panel' | 'page';
 
 export type StartPage = 'inbox' | 'dashboard' | 'work-items' | 'initiatives';
+
+export type AgentRunsView = 'full' | 'compact';
 
 export type IssueStatsView = 'compact' | 'timeline';
 
@@ -36,6 +38,8 @@ export interface AccountPreferences {
   issueOpenMode: IssueOpenMode;
   startPage: StartPage;
   showChatByDefault: boolean;
+  // Where a run opens in the side panel: beside the list or in place of it.
+  agentRunsView: AgentRunsView;
   // How the status stats section of an issue starts out, and the shape its activity
   // log starts in. Switching either on an issue is not saved — it lasts as long as
   // that issue stays open.
@@ -47,6 +51,8 @@ export interface AccountPreferences {
   autoWatch: boolean;
   // Whether the user closed the tour of the product, shown once to every account.
   onboardingSeen: boolean;
+  // Whether the instance owner closed the request to list the company on itsaplan.dev.
+  showcaseSeen: boolean;
   lastProjectId: number | null;
   // The keyboard shortcuts this user rebound, as { commandId: combo }. Only the
   // changed ones; the rest come from the instance settings, then the built-in
